@@ -1,0 +1,117 @@
+@model PlansBrowserVm
+@{
+    var role = User.Identity?.IsAuthenticated == true ? User.ToSession().Role : "";
+    var orderHref = role switch { "customer" => "/portal#orders", "retail" => "/retail#order", "" => "/register", _ => Fmt.RoleHome(role) };
+    var orderText = role == "" ? "Get this plan" : role is "customer" or "retail" ? "Order now" : "Open console";
+    var types = new[] { ("dialup", "radio", "text-amber-300", "hover:border-amber-400/50"), ("broadband", "wifi", "text-cyan-300", "hover:border-cyan-400/50"), ("landline", "phone", "text-violet-300", "hover:border-violet-400/50") };
+}
+<div data-plans-browser data-order-href="@orderHref" data-order-text="@orderText">
+    <div class="glass mx-auto flex w-fit items-center gap-1 rounded-full p-1.5">
+        @foreach (var t in types)
+        {
+            <button type="button" data-plan-type="@t.Item1" class="plan-tab @(t.Item1 == "broadband" ? "active" : "") relative flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition sm:px-7">
+                <i data-lucide="@t.Item2" class="relative z-10 h-4 w-4"></i>
+                <span class="relative z-10">@Fmt.TypeLabel(t.Item1)</span>
+            </button>
+        }
+    </div>
+
+    @foreach (var t in types)
+    {
+        var grouped = Model.Plans.Where(p => p.ConnectionType == t.Item1)
+            .GroupBy(p => p.Category).Take(Model.Compact ? 2 : int.MaxValue).ToList();
+        <div data-plan-panel="@t.Item1" @(t.Item1 == "broadband" ? "" : "hidden")>
+            <p class="mt-6 text-center text-sm text-slate-500">
+                <i data-lucide="shield-check" class="mr-2 inline h-4 w-4 text-cyan-400/70"></i>
+                Refundable security deposit for @Fmt.TypeLabel(t.Item1):
+                <span class="font-semibold text-slate-200">@Fmt.Money(Fmt.Deposit(t.Item1))</span> — returned in full
+                on withdrawal. Service tax of 12.24% applies on every bill.
+            </p>
+
+            <div class="plan-panel mt-12 space-y-14">
+                @foreach (var g in grouped)
+                {
+                    var i = 0;
+                    <div>
+                        <div class="mb-6 flex items-center gap-4">
+                            <span class="font-display text-sm font-bold uppercase tracking-[0.28em] @t.Item3">@g.Key</span>
+                            <span class="h-px flex-1 bg-gradient-to-r from-slate-700/70 to-transparent"></span>
+                        </div>
+                        <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                            @foreach (var p in g)
+                            {
+                                <div class="reveal" style="--d:@((i++ * 0.08).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))s">
+                                    <div data-plan-card data-id="@p.Id" data-type="@Fmt.TypeLabel(p.ConnectionType)" data-category="@p.Category" data-name="@p.Name" data-speed="@p.Speed" data-price="@Fmt.Dec(p.Price)" data-deposit="@Fmt.Dec(p.Deposit)" data-validity="@p.ValidityLabel" data-months="@p.ValidityMonths" data-calls="@p.CallRates" class="glass card-hover group relative flex h-full flex-col overflow-hidden rounded-3xl p-7 @t.Item4">
+                                        <div class="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-cyan-500/10 blur-2xl transition group-hover:bg-cyan-500/20"></div>
+                                        <div class="relative -mx-7 -mt-7 mb-6 aspect-video overflow-hidden bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                                            <img src="@Ui.PlanImage(p.ImageUrl, p.ConnectionType, p.Category, p.Name)" alt="@p.Category @p.Name" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                                            <div class="absolute inset-0 bg-gradient-to-t from-ink-900/80 to-transparent"></div>
+                                            <label class="cmp-toggle" title="Add to comparison (up to 3)">
+                                                <input type="checkbox" data-compare aria-label="Compare @p.Category @p.Name" />Compare
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="rounded-full border border-slate-700/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">@p.Name</span>
+                                            @if (!string.IsNullOrEmpty(p.Speed))
+                                            {
+                                                <span class="flex items-center gap-1.5 text-xs font-bold @t.Item3">
+                                                    <i data-lucide="zap" class="h-3.5 w-3.5"></i>@p.Speed
+                                                </span>
+                                            }
+                                        </div>
+
+                                        <div class="mt-6 flex items-end gap-2">
+                                            <span class="font-display text-5xl font-bold tracking-tight text-slate-100">@Fmt.Money(p.Price)</span>
+                                            <span class="mb-1.5 flex items-center gap-1 text-xs text-slate-500">
+                                                <i data-lucide="timer" class="h-3.5 w-3.5"></i>@p.ValidityLabel
+                                            </span>
+                                        </div>
+
+                                        <p class="mt-4 flex-1 text-sm leading-relaxed text-slate-400">@p.Description</p>
+
+                                        @if (!string.IsNullOrEmpty(p.CallRates))
+                                        {
+                                            <p class="mt-4 rounded-xl border border-violet-400/20 bg-violet-500/5 px-3.5 py-2.5 text-xs leading-relaxed text-violet-200/90">@p.CallRates</p>
+                                        }
+
+                                        <div class="mt-6 flex items-center justify-between border-t border-slate-800 pt-5">
+                                            <span class="text-xs text-slate-500">+ @Fmt.Money(p.Deposit) deposit</span>
+                                            <a href="@orderHref" class="flex items-center gap-1.5 text-sm font-semibold text-cyan-300 transition group-hover:gap-2.5">
+                                                @orderText
+                                                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div data-compare-wrap hidden class="mt-14 scroll-mt-28">
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.26em] text-cyan-300">Compare plans</p>
+                <h3 class="mt-1 font-display text-2xl font-bold text-slate-100">Side by side</h3>
+                <p class="mt-1 text-sm text-slate-500">Rental, deposit, charges, speed and validity — tick up to three plans above to change this table.</p>
+            </div>
+            <button type="button" data-cmp-clear class="rounded-full border border-slate-700 px-4 py-2 text-xs font-bold text-slate-400 transition hover:border-rose-400/60 hover:text-rose-500">Clear comparison</button>
+        </div>
+        <div class="glass-strong overflow-hidden rounded-3xl">
+            <div class="overflow-x-auto"><table data-compare-table class="cmp-table"></table></div>
+        </div>
+    </div>
+
+    @if (Model.Compact)
+    {
+        <div class="mt-12 text-center">
+            <a href="/plans" class="inline-flex items-center gap-2 rounded-full border border-cyan-400/40 px-7 py-3 font-display text-sm font-bold uppercase tracking-wider text-cyan-300 transition hover:bg-cyan-400/10">
+                View the full tariff sheet
+                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+            </a>
+        </div>
+    }
+</div>

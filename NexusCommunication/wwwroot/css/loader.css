@@ -1,0 +1,217 @@
+/* ============================================================================
+   Nexus LOADING SCREEN (first visit of a browser session)
+   Markup: Views/Shared/_Layout.cshtml  (#nx-loader)      Logic + music: wwwroot/js/loader.js
+   Same palette as the site (white · blue · indigo · violet, liquid-glass). Plain CSS, no library.
+
+   Classes on <html>:  nx-loader-on  -> overlay exists / is visible
+                       nx-loading    -> page is still loading (scroll locked, hero animations paused)
+   Classes on #nx-loader:  done (ring flash)   out (leaving)
+   Switch off: remove the loader block + the 2 head lines + loader.js from _Layout.cshtml.
+   ============================================================================ */
+
+#nx-loader { display: none; }
+html.nx-loader-on #nx-loader { display: flex; }
+html.nx-loading { overflow: hidden; }
+/* the site underneath waits (hero entrance, marquee ...) so it plays when the loader lifts */
+html.nx-loading :where(main, [data-accent]) * { animation-play-state: paused !important; }
+
+#nx-loader {
+  --nxl-blue: #2563eb; --nxl-indigo: #4f46e5; --nxl-violet: #7c3aed;
+  --nxl-ink: #0f172a; --nxl-mute: #475569;
+  --nxl-s: clamp(176px, 36vmin, 292px);                     /* logo stage size */
+  position: fixed; inset: 0; z-index: 100000;
+  flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden; cursor: default;
+  color: var(--nxl-ink); font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #eaf0ff;
+  -webkit-font-smoothing: antialiased;
+  contain: layout paint style;
+  transition: opacity 0.85s cubic-bezier(0.65, 0, 0.25, 1), transform 0.85s cubic-bezier(0.65, 0, 0.25, 1), visibility 0s linear 0.85s;
+  /* pure-CSS failsafe: even if every script fails, the screen never traps the visitor */
+  animation: nxlFailsafe 0.01s linear 18s forwards;
+}
+@keyframes nxlFailsafe { to { visibility: hidden; opacity: 0; pointer-events: none; } }
+#nx-loader.out { opacity: 0; transform: scale(1.04); pointer-events: none; visibility: hidden; }
+#nx-loader * { box-sizing: border-box; }
+
+/* ------------------------------------------------------------------ backdrop: same colourful, drifting glass backdrop as the site */
+.nxl-bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(ellipse 60% 40% at 8% 0%, rgba(96, 165, 250, 0.38), transparent 60%),
+    radial-gradient(ellipse 55% 40% at 100% 8%, rgba(167, 139, 250, 0.38), transparent 60%),
+    radial-gradient(ellipse 60% 45% at 50% 100%, rgba(244, 114, 182, 0.2), transparent 65%),
+    #eaf0ff; }
+.nxl-bg i { position: absolute; border-radius: 50%; opacity: 0; will-change: transform, opacity;   /* gradient glow, no blur filter: cheap to draw, drifts on the compositor */
+  background: radial-gradient(closest-side, rgba(var(--c), 0.62), rgba(var(--c), 0.34) 42%, rgba(var(--c), 0.1) 72%, rgba(var(--c), 0)); animation: nxlOrbIn 1.6s ease forwards, nxlDrift 18s ease-in-out infinite alternate; }
+.nxl-bg .o1 { --c: 59, 130, 246; width: 62vmax; height: 62vmax; left: -22vmax; top: -24vmax; animation-delay: 0s, 0s; }
+.nxl-bg .o2 { --c: 139, 92, 246; width: 54vmax; height: 54vmax; right: -20vmax; top: -18vmax; animation-delay: 0.15s, -4s; }
+.nxl-bg .o3 { --c: 236, 72, 153; width: 50vmax; height: 50vmax; right: -14vmax; bottom: -24vmax; opacity: 0; animation-delay: 0.3s, -8s; }
+.nxl-bg .o4 { --c: 34, 211, 238; width: 46vmax; height: 46vmax; left: -14vmax; bottom: -22vmax; animation-delay: 0.45s, -12s; }
+@keyframes nxlOrbIn { to { opacity: 1; } }
+@keyframes nxlDrift { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(4%, 3%, 0) scale(1.1); } }
+.nxl-grid { position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(79, 70, 229, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(79, 70, 229, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 46%, #000 20%, transparent 72%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 46%, #000 20%, transparent 72%);
+  opacity: 0; animation: nxlOrbIn 1.4s ease 0.2s forwards; }
+
+/* ------------------------------------------------------------------ stage: orbits + progress ring + logo tile */
+.nxl-stage { position: relative; width: var(--nxl-s); height: var(--nxl-s); display: grid; place-items: center; margin-bottom: clamp(18px, 4.2vmin, 34px); }
+
+.nxl-orbit { position: absolute; left: -26%; top: -26%; width: 152%; height: 152%; overflow: visible; pointer-events: none; }
+.nxl-orbit-back, .nxl-dots-back { z-index: 1; }
+.nxl-orbit-front, .nxl-dots-front { z-index: 4; }
+.nxl-orbit { opacity: 0; animation: nxlFade 1.2s ease 0.7s forwards; }
+
+/* orbiting dots — x and y are two nested sine-eased transform animations a quarter period apart (= an ellipse), all on the compositor,
+   so they keep gliding even while the browser is busy compiling the page. The back half hides behind the logo tile, the front half passes over it. */
+.nxl-dots { position: absolute; left: -26%; top: -26%; width: 152%; height: 152%; pointer-events: none; opacity: 0; animation: nxlFade 1.2s ease 0.7s forwards;
+  --rx: calc(var(--nxl-s) * 0.707); --ry: calc(var(--nxl-s) * 0.22); }
+.nxl-o { position: absolute; inset: 0; }
+.nxl-o1 { --P: 9s; transform: rotate(-21deg); }
+.nxl-o2 { --P: 13s; transform: rotate(34deg) scale(0.86); }
+.nxl-o .x { position: absolute; left: 50%; top: 50%; width: 0; height: 0;
+  animation-name: nxlOX, nxlVisA; animation-duration: calc(var(--P) / 2), var(--P); animation-timing-function: cubic-bezier(0.37, 0, 0.63, 1), linear;
+  animation-iteration-count: infinite, infinite; animation-direction: alternate, normal; }
+.nxl-o .y { position: absolute; left: 0; top: 0; width: 0; height: 0;
+  animation: nxlOY calc(var(--P) / 2) cubic-bezier(0.37, 0, 0.63, 1) calc(var(--P) / -4) infinite alternate; }
+.nxl-o2 .y { animation-direction: alternate-reverse; }
+.nxl-dots-front .nxl-o1 .x, .nxl-dots-back .nxl-o2 .x { animation-name: nxlOX, nxlVisA; }
+.nxl-dots-front .nxl-o2 .x, .nxl-dots-back .nxl-o1 .x { animation-name: nxlOX, nxlVisB; }
+.nxl-o .d { position: absolute; left: -4.5px; top: -4.5px; width: 9px; height: 9px; border-radius: 50%; background: #fff; border: 1.6px solid #6d28d9;
+  box-shadow: 0 0 0 5px rgba(124, 58, 237, 0.16), 0 0 14px rgba(124, 58, 237, 0.5); }
+.nxl-o .d.s { left: -3.5px; top: -3.5px; width: 7px; height: 7px; border-color: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15), 0 0 11px rgba(37, 99, 235, 0.45); }
+.nxl-dots-back .d { opacity: 0.6; }
+@keyframes nxlOX { from { transform: translate3d(calc(var(--rx) * -1), 0, 0); } to { transform: translate3d(var(--rx), 0, 0); } }
+@keyframes nxlOY { from { transform: translate3d(0, calc(var(--ry) * -1), 0) scale(0.7); } to { transform: translate3d(0, var(--ry), 0) scale(1.3); } }
+@keyframes nxlVisA { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes nxlVisB { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+.nxl-ring { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; overflow: visible; }
+.nxl-ring .track { fill: none; stroke: rgba(99, 102, 241, 0.16); stroke-width: 3; stroke-dasharray: 578; stroke-dashoffset: 578; animation: nxlDraw 1.3s cubic-bezier(0.65, 0, 0.25, 1) 0.15s forwards; }
+.nxl-ring .dots { fill: none; stroke: rgba(79, 70, 229, 0.35); stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 0.1 7; transform-origin: 100px 100px; opacity: 0; animation: nxlFade 1s ease 0.9s forwards, nxlSpin 40s linear infinite; }
+.nxl-ring .arc { fill: none; stroke: url(#nxlGrad); stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 578; stroke-dashoffset: 578; transform: rotate(-90deg); transform-origin: 100px 100px; }
+.nxl-ring .arc.arcg { stroke: rgba(99, 102, 241, 0.5); stroke-width: 11; opacity: 0.34; }              /* soft glow = a wider, faint copy of the arc (no filter) */
+.nxl-ring .head { transform-origin: 100px 100px; opacity: 0; }
+.nxl-ring .head .hc { fill: #fff; stroke: url(#nxlGrad); stroke-width: 2.4; }
+.nxl-ring .head .hg { fill: rgba(124, 58, 237, 0.26); }
+#nx-loader.has-progress .nxl-ring .head { opacity: 1; transition: opacity 0.4s ease; }
+#nx-loader.done .nxl-ring .head { opacity: 0; transition: opacity 0.3s; }
+#nx-loader.done .nxl-ring .arc { stroke-width: 5.5; transition: stroke-width 0.4s ease; }
+#nx-loader.done .nxl-ring .arc.arcg { stroke-width: 15; opacity: 0.6; transition: stroke-width 0.4s ease, opacity 0.4s ease; }
+@keyframes nxlDraw { to { stroke-dashoffset: 0; } }
+@keyframes nxlFade { to { opacity: 1; } }
+@keyframes nxlSpin { to { transform: rotate(360deg); } }
+
+/* the logo tile (frosted glass) */
+.nxl-tile { position: relative; z-index: 3; width: 58%; aspect-ratio: 1; border-radius: 30%; display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 242, 255, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 28px 60px -22px rgba(49, 46, 129, 0.55), 0 8px 22px -8px rgba(79, 70, 229, 0.35);
+  opacity: 0; transform: scale(0.55);
+  animation: nxlTileIn 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s forwards; }
+.nxl-tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.85) 50%, transparent 62%); transform: translateX(-120%); animation: nxlSheen 3.4s ease-in-out 1.7s infinite; }
+@keyframes nxlTileIn { to { opacity: 1; transform: scale(1); } }
+/* the breathing glow behind the tile (opacity + scale only) */
+.nxl-glow { position: absolute; z-index: 2; inset: -4%; border-radius: 50%; pointer-events: none; opacity: 0; will-change: transform, opacity;
+  background: radial-gradient(closest-side, rgba(124, 58, 237, 0.34), rgba(79, 70, 229, 0.18) 48%, rgba(79, 70, 229, 0));
+  animation: nxlGlowIn 1s ease 0.5s forwards, nxlGlow 3.6s ease-in-out 1.6s infinite; }
+@keyframes nxlGlowIn { to { opacity: 0.7; } }
+@keyframes nxlGlow { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+#nx-loader.done .nxl-glow { animation: nxlGlowBurst 0.7s ease-out forwards; }
+@keyframes nxlGlowBurst { 0% { opacity: 0.8; transform: scale(1); } 40% { opacity: 1; transform: scale(1.32); } 100% { opacity: 0.6; transform: scale(1.18); } }
+@keyframes nxlSheen { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+#nx-loader.done .nxl-tile { animation: nxlTileDone 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+@keyframes nxlTileDone { 0% { transform: scale(1); } 45% { transform: scale(1.1); } 100% { transform: scale(1.04); } }
+
+.nxl-tile img { display: none; width: 66%; height: 66%; object-fit: contain; }
+.nxl-tile.has-img img { display: block; }
+.nxl-tile.has-img .nxl-mono { display: none; }
+.nxl-mono { width: 64%; height: 64%; overflow: visible; }
+.nxl-mono path { fill: none; stroke: url(#nxlGrad); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 260; stroke-dashoffset: 260; animation: nxlDraw 1.35s cubic-bezier(0.65, 0, 0.25, 1) 0.8s forwards; }
+.nxl-mono { animation: nxlMonoGlow 0.4s ease 2.2s forwards; }
+@keyframes nxlMonoGlow { to { filter: drop-shadow(0 3px 6px rgba(79, 70, 229, 0.35)); } }
+.nxl-mono circle { fill: url(#nxlGrad); opacity: 0; animation: nxlFade 0.5s ease 1.9s forwards; }
+
+/* ------------------------------------------------------------------ wordmark */
+.nxl-brand { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.nxl-word { display: flex; font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: clamp(22px, 4.6vmin, 34px); letter-spacing: 0.46em; margin-right: -0.46em; }
+.nxl-word span { display: inline-block; opacity: 0; transform: translateY(14px);
+  background: linear-gradient(100deg, #1d4ed8 10%, #4f46e5 55%, #9333ea 95%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: nxlLetter 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.nxl-word span:nth-child(1) { animation-delay: 1.0s; } .nxl-word span:nth-child(2) { animation-delay: 1.07s; } .nxl-word span:nth-child(3) { animation-delay: 1.14s; }
+.nxl-word span:nth-child(4) { animation-delay: 1.21s; } .nxl-word span:nth-child(5) { animation-delay: 1.28s; }
+@keyframes nxlLetter { to { opacity: 1; transform: none; } }
+.nxl-sub { font-size: clamp(9px, 1.5vmin, 11px); font-weight: 600; letter-spacing: 0.34em; margin-right: -0.34em; text-transform: uppercase; color: #3b6fe0; opacity: 0; animation: nxlFadeUp 0.9s ease 1.45s forwards; }
+@keyframes nxlFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 0.9; transform: none; } }
+
+/* ------------------------------------------------------------------ meter: bar + status + percentage */
+.nxl-meter { width: min(78vw, 340px); margin-top: clamp(20px, 4.4vmin, 36px); opacity: 0; animation: nxlFadeUp2 0.9s ease 1.6s forwards; }
+@keyframes nxlFadeUp2 { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.nxl-bar { position: relative; height: 6px; border-radius: 99px; overflow: hidden; background: rgba(99, 102, 241, 0.16); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
+.nxl-bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; transform-origin: left center; transform: scaleX(0);
+  background: linear-gradient(90deg, #2563eb, #4f46e5 55%, #7c3aed); box-shadow: 0 0 12px rgba(99, 102, 241, 0.6); }
+.nxl-bar i { overflow: hidden; }
+.nxl-bar i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%); transform: translateX(-100%); animation: nxlShimmer 1.7s linear infinite; }
+@keyframes nxlShimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.nxl-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.nxl-status { font-size: 11.5px; font-weight: 500; letter-spacing: 0.06em; color: var(--nxl-mute); min-height: 1.2em; transition: opacity 0.25s ease; }
+.nxl-pct { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: #3730a3; }
+
+.nxl-foot { position: absolute; left: 0; right: 0; bottom: clamp(18px, 4vh, 34px); margin: 0; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; color: rgba(51, 65, 85, 0.55); opacity: 0; animation: nxlFade 1s ease 1.9s forwards; padding: 0 16px; }
+
+/* ------------------------------------------------------------------ sound toggle */
+.nxl-sound { position: absolute; top: clamp(14px, 3vh, 26px); right: clamp(14px, 3vw, 28px); z-index: 6; display: inline-flex; align-items: center; gap: 10px;
+  padding: 9px 15px 9px 13px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; color: #312e81;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(244, 246, 255, 0.78));
+  border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 12px 28px -14px rgba(49, 46, 129, 0.45);
+  opacity: 0; animation: nxlFade 0.8s ease 0.6s forwards; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.nxl-sound::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; border: 2px solid rgba(124, 58, 237, 0.55); opacity: 0; pointer-events: none; }
+.nxl-sound:hover { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 16px 34px -14px rgba(79,70,229,.6); }
+.nxl-sound:focus-visible { outline: 2px solid rgba(79, 70, 229, 0.85); outline-offset: 3px; }
+.nxl-eq { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 14px; }
+.nxl-eq i { display: block; width: 3px; height: 100%; border-radius: 2px; background: linear-gradient(180deg, #4f46e5, #7c3aed); transform-origin: bottom; transform: scaleY(0.25); }
+.nxl-sound[data-state="on"] .nxl-eq i { animation: nxlEq 0.9s ease-in-out infinite; }
+.nxl-sound[data-state="on"] .nxl-eq i:nth-child(2) { animation-delay: -0.3s; animation-duration: 0.7s; }
+.nxl-sound[data-state="on"] .nxl-eq i:nth-child(3) { animation-delay: -0.55s; animation-duration: 1.05s; }
+.nxl-sound[data-state="on"] .nxl-eq i:nth-child(4) { animation-delay: -0.15s; animation-duration: 0.8s; }
+.nxl-sound[data-state="blocked"]::after { animation: nxlNudge 1.8s ease-out 1.2s infinite; }
+.nxl-sound[data-state="blocked"] .nxl-eq i { transform: scaleY(0.5); opacity: 0.55; }
+.nxl-sound[data-state="off"] .nxl-eq i { transform: scaleY(0.18); opacity: 0.45; }
+@keyframes nxlEq { 0%, 100% { transform: scaleY(0.2); } 50% { transform: scaleY(1); } }
+@keyframes nxlNudge { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.28, 1.7); } }
+
+/* "click anywhere" hint — only while the browser is still blocking sound */
+.nxl-tap { display: inline-flex; align-items: center; gap: 9px; margin-top: clamp(14px, 3vmin, 22px); padding: 8px 16px; border-radius: 999px; position: relative;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.07em; color: #3730a3; background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(165, 180, 252, 0.7);
+  box-shadow: 0 10px 26px -14px rgba(49, 46, 129, 0.5); opacity: 0; transform: translateY(6px); visibility: hidden; pointer-events: none;
+  transition: opacity 0.5s ease, transform 0.5s ease, visibility 0s linear 0.5s; }
+.nxl-tap svg { width: 16px; height: 16px; flex: none; }
+.nxl-tap::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; border: 2px solid rgba(124, 58, 237, 0.5); opacity: 0; pointer-events: none; }
+#nx-loader.snd-blocked .nxl-tap { opacity: 1; transform: none; visibility: visible; transition: opacity 0.6s ease 1.6s, transform 0.6s ease 1.6s, visibility 0s linear 1.6s; }
+#nx-loader.snd-blocked .nxl-tap::after { animation: nxlNudge 1.8s ease-out 2.4s infinite; }
+#nx-loader.done .nxl-tap, #nx-loader.out .nxl-tap { opacity: 0; visibility: hidden; }
+
+/* ------------------------------------------------------------------ small screens / preferences */
+@media (max-width: 520px) {
+  .nxl-sound-label { display: none; }
+  .nxl-sound { padding: 10px 12px; }
+  .nxl-foot { letter-spacing: 0.22em; font-size: 9px; }
+}
+@media (max-height: 520px) {
+  #nx-loader { --nxl-s: clamp(120px, 30vmin, 180px); }
+  .nxl-foot { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #nx-loader, #nx-loader * { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
+  .nxl-bg i { animation: none !important; opacity: 1; }
+  .nxl-tile, .nxl-word span, .nxl-sub, .nxl-meter, .nxl-foot, .nxl-orbit, .nxl-sound, .nxl-glow { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .nxl-dots { display: none; }
+  .nxl-ring .track, .nxl-mono path { stroke-dashoffset: 0 !important; }
+  .nxl-mono circle { opacity: 1 !important; }
+  #nx-loader { transition: opacity 0.3s ease, visibility 0s linear 0.3s; }
+  #nx-loader.out { transform: none; }
+}
+@media print { #nx-loader { display: none !important; } }

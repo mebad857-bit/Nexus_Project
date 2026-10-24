@@ -1,0 +1,319 @@
+@model TechnicalVm
+@{
+    ViewData["Title"] = "Technical Operations — Nexus";
+    ViewData["Role"] = "technical";
+    ViewData["RoleLabel"] = "Technical Desk";
+    ViewData["ScopeName"] = "Network Operations Center";
+    Layout = "_DashboardLayout";
+
+    var tabs = new (string, string, string)[] { ("queue", "Feasibility Queue", "radar"), ("provision", "Provision Deck", "satellite"), ("orders", "Order Tracker", "clipboard-list"), ("grid", "Connection Grid", "signal"), ("equipment", "Equipment Bay", "package"), ("tickets", "My Tickets", "wrench") };
+    ViewData["NavTabs"] = tabs;
+    string J(object o) => System.Text.Json.JsonSerializer.Serialize(o);
+    var match = new Dictionary<string, string[]>
+    {
+        ["dialup"] = new[] { "modem" }, ["broadband"] = new[] { "modem", "router" }, ["landline"] = new[] { "telephone", "cabling" },
+    };
+    const string Th = "px-5 py-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500";
+}
+
+<div>
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold tracking-tight text-slate-100">Technical Operations</h1>
+            <p class="mt-1.5 text-sm text-slate-500">Survey feasibility, provision feasible orders into live accounts, and govern the connection grid.</p>
+        </div>
+    </div>
+
+    <div class="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        @Ui.StatCard("radar", "Surveys pending", Fmt.Num(Model.Pending), null, "amber")
+        @Ui.StatCard("circle-check", "Cleared to install", Fmt.Num(Model.Feasible), null, "cyan")
+        @Ui.StatCard("signal", "Live", Fmt.Num(Model.Active), null, "emerald")
+        @Ui.StatCard("power-off", "Inactive", Fmt.Num(Model.Inactive), null, "rose")
+        @Ui.StatCard("package", "Low stock lines", Fmt.Num(Model.LowStock), null, "violet")
+    </div>
+
+    @await Html.PartialAsync("_TabBar", new TabBarVm("amber", tabs))
+
+    <!-- ------------------------------- queue ------------------------------- -->
+    <section data-panel="queue" hidden>
+        @await Html.PartialAsync("_DeskHero", ("technical", "Field engineering", "Provisioning rack", "Feasibility survey"))
+
+        @if (Model.PendingOrders.Count == 0)
+        {
+            @Ui.Empty("The queue is clear", "New retail and online applications will land here for feasibility survey.")
+        }
+        else
+        {
+            <div class="grid gap-5 lg:grid-cols-2">
+                @foreach (var o in Model.PendingOrders)
+                {
+                    <div class="glass-strong rounded-3xl p-6" data-order-card="@o.Id" data-order-no="@o.OrderNo">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                @Ui.TypeChip(o.ConnectionType)
+                                <span class="font-mono text-sm font-bold tracking-wider text-amber-300">@o.OrderNo</span>
+                            </div>
+                            <span class="text-xs text-slate-500">Applied @Fmt.Date(o.CreatedAt) · @(o.Shop?.Name ?? "Online application")</span>
+                        </div>
+
+                        <div class="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Applicant</p>
+                                <p class="mt-1 font-semibold text-slate-200">@o.Customer.Name</p>
+                                <p class="text-xs text-slate-500">@o.Customer.Phone</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Plan requested</p>
+                                <p class="mt-1 text-slate-300">@o.Plan?.Category · @o.Plan?.Name</p>
+                                @if (o.Quantity > 1)
+                                {
+                                    <p class="text-xs text-emerald-300">Bulk order × @o.Quantity lines (@o.DiscountPct% slab)</p>
+                                }
+                            </div>
+                        </div>
+
+                        <p class="mt-4 flex items-start gap-2 rounded-xl border border-slate-800 bg-ink-900/60 px-4 py-3 text-sm text-slate-400">
+                            <i data-lucide="map-pin" class="mt-0.5 h-4 w-4 shrink-0 text-amber-300/70"></i>
+                            @o.Customer.Address, @o.Customer.City
+                        </p>
+
+                        <input data-remark placeholder="Survey remark — distance, node availability…" class="field mt-4" />
+
+                        <div class="mt-4 flex gap-3">
+                            <button type="button" data-decide="feasible" class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/80 to-teal-600/80 px-4 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50">
+                                <span data-icon-slot><i data-lucide="circle-check" class="h-4 w-4"></i></span>
+                                Clear as feasible
+                            </button>
+                            <button type="button" data-decide="infeasible" class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-400/40 px-4 py-3 text-sm font-bold text-rose-300 transition hover:bg-rose-400/10 disabled:opacity-50">
+                                <span data-icon-slot><i data-lucide="circle-x" class="h-4 w-4"></i></span>
+                                Not feasible
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <!-- ----------------------------- provision ----------------------------- -->
+    <section data-panel="provision" hidden>
+        @await Html.PartialAsync("_TabBanner", ("technical", "provision", "Provision deck", "Activate approved connections"))
+
+        <div class="space-y-6">
+            <div id="issued-box" hidden class="glass rounded-3xl border-emerald-400/30 p-6">
+                <h3 class="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.18em] text-emerald-300">
+                    <i data-lucide="circle-check" class="h-4 w-4"></i> Accounts issued this session
+                </h3>
+                <div id="issued-list" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+            </div>
+
+            @if (Model.FeasibleOrders.Count == 0)
+            {
+                @Ui.Empty("Nothing cleared for installation", "Orders marked feasible in the queue appear here for provisioning.")
+            }
+            else
+            {
+                <div class="space-y-4">
+                    @foreach (var o in Model.FeasibleOrders)
+                    {
+                        var types = match.TryGetValue(o.ConnectionType, out var m) ? m : Array.Empty<string>();
+                        var options = Model.Equipment.Where(e => types.Contains(e.Type) && e.Stock >= o.Quantity).ToList();
+                        <div class="glass-strong flex flex-wrap items-center gap-4 rounded-3xl p-5" data-provision-card="@o.Id" data-customer="@o.Customer.Name" data-lines="@o.Quantity">
+                            <div class="min-w-[200px] flex-1">
+                                <div class="flex items-center gap-3">
+                                    @Ui.TypeChip(o.ConnectionType)
+                                    <span class="font-mono text-sm font-bold tracking-wider text-cyan-300">@o.OrderNo</span>
+                                </div>
+                                <p class="mt-2 font-semibold text-slate-200">@o.Customer.Name · @o.Customer.City</p>
+                                <p class="text-xs text-slate-500">@(o.Plan?.Category) · @(o.Plan?.Name)@(o.Quantity > 1 ? $" · ×{o.Quantity} lines" : "")</p>
+                                @if (o.Quantity > 1) { <p class="mt-1 text-xs font-semibold text-emerald-300">Bulk order — @o.Quantity separate account ids will be issued.</p> }
+                            </div>
+                            <select data-equipment class="field w-full sm:w-64">
+                                <option value="">No equipment / later</option>
+                                @foreach (var e in options)
+                                {
+                                    <option value="@e.Id">@e.Name — @e.Stock in stock</option>
+                                }
+                            </select>
+                            <button type="button" data-activate class="btn-glow flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                                <span data-icon-slot><i data-lucide="satellite" class="h-4 w-4"></i></span>
+                                Activate account
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- ------------------------------ order tracker ------------------------------ -->
+    <section data-panel="orders" hidden>
+        @await Html.PartialAsync("_TabBanner", ("technical", "orders", "Order tracker", "Follow every order in the field"))
+
+        <div class="space-y-5">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Order tracker</h2>
+                <p class="mt-1 text-sm text-slate-500">Every application and where it stands — filter by status to see what still needs a survey or an installation.</p>
+            </div>
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="10" data-search-placeholder="Search order id, customer, city…">
+                <div data-tt-extra>
+                    <select id="order-filter" class="field !w-auto !py-2 text-xs">
+                        <option value="all">Every status</option><option value="pending">Feasibility pending</option><option value="feasible">Feasible</option>
+                        <option value="infeasible">Not feasible</option><option value="connected">Connected</option><option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full min-w-[820px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Order", "Applicant", "Plan", "Lines", "Placed", "Survey remark", "Status" }) { <th data-sort class="@Th">@h</th> }
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.AllOrders.Count == 0) { <tr><td colspan="7" class="px-5 py-8">@Ui.Empty("No orders yet")</td></tr> }
+                        @foreach (var o in Model.AllOrders)
+                        {
+                            <tr class="table-row" data-order-row data-status="@o.Status">
+                                <td class="px-5 py-3.5 font-mono text-xs tracking-wider text-amber-300">@o.OrderNo</td>
+                                <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@o.Customer.Name</p><p class="text-xs text-slate-500">@o.Customer.City</p></td>
+                                <td class="px-5 py-3.5"><div class="mb-1">@Ui.TypeChip(o.ConnectionType)</div><p class="text-xs text-slate-500">@o.Plan?.Category · @o.Plan?.Name</p></td>
+                                <td class="px-5 py-3.5 text-slate-300">@o.Quantity</td>
+                                <td class="px-5 py-3.5 text-xs text-slate-500" data-v="@o.CreatedAt.ToString("yyyy-MM-dd")">@Fmt.Date(o.CreatedAt)</td>
+                                <td class="max-w-xs px-5 py-3.5 text-xs text-slate-400">@(o.Remark ?? "—")</td>
+                                <td class="px-5 py-3.5">@Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- -------------------------------- grid -------------------------------- -->
+    <section data-panel="grid" hidden>
+        @await Html.PartialAsync("_TabBanner", ("technical", "grid", "Connection grid", "Status of every live line"))
+
+        @if (Model.Connections.Count == 0)
+        {
+            @Ui.Empty("No connections on the grid", "Provisioned orders will populate the grid.")
+        }
+        else
+        {
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="10" data-search-placeholder="Search account id, subscriber, city…"><div class="overflow-x-auto">
+                <table class="w-full min-w-[860px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @{ var heads = new[] { "Account ID", "Subscriber", "Type", "Plan", "City", "Live since", "Status", "Control" }; }
+                        @for (var i = 0; i < heads.Length; i++) { <th @(i == heads.Length - 1 ? "" : "data-sort") class="@Th @(i == heads.Length - 1 ? "text-right" : "")">@heads[i]</th> }
+                    </tr></thead>
+                    <tbody>
+                        @foreach (var c in Model.Connections)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5 font-mono text-xs font-bold tracking-wider text-cyan-300">@c.AccountId</td>
+                                <td class="px-4 py-3.5 font-semibold text-slate-200">@c.Customer.Name</td>
+                                <td class="px-4 py-3.5">@Ui.TypeChip(c.ConnectionType)</td>
+                                <td class="px-4 py-3.5 text-xs text-slate-400">@c.Plan?.Category · @c.Plan?.Name</td>
+                                <td class="px-4 py-3.5 text-xs text-slate-400">@c.City</td>
+                                <td class="px-4 py-3.5 text-xs text-slate-500" data-v="@c.ActivatedAt.ToString("yyyy-MM-dd")">@Fmt.Date(c.ActivatedAt)</td>
+                                <td class="px-4 py-3.5">@Ui.Pill(c.Status, Fmt.ConnStatus(c.Status))</td>
+                                <td class="px-5 py-3.5">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        @if (c.Status != ConnStatus.PermanentlyInactive)
+                                        {
+                                            <button type="button" data-change-plan="@c.Id" data-type="@c.ConnectionType" data-account="@c.AccountId" data-current="@c.PlanId" title="Change plan" class="grid h-8 w-8 place-items-center rounded-lg border border-sky-400/40 text-sky-300 transition hover:bg-sky-400/10"><i data-lucide="repeat" class="h-3.5 w-3.5"></i></button>
+                                        }
+                                        @if (c.Status != ConnStatus.Active)
+                                        {
+                                            <button type="button" data-conn-status="active" data-id="@c.Id" data-account="@c.AccountId" title="Reactivate" class="grid h-8 w-8 place-items-center rounded-lg border border-emerald-400/40 text-emerald-300 transition hover:bg-emerald-400/10"><i data-lucide="power" class="h-3.5 w-3.5"></i></button>
+                                        }
+                                        @if (c.Status == ConnStatus.Active)
+                                        {
+                                            <button type="button" data-conn-status="temporarily_inactive" data-id="@c.Id" data-account="@c.AccountId" title="Hold temporarily" class="grid h-8 w-8 place-items-center rounded-lg border border-amber-400/40 text-amber-300 transition hover:bg-amber-400/10"><i data-lucide="power-off" class="h-3.5 w-3.5"></i></button>
+                                        }
+                                        @if (c.Status != ConnStatus.PermanentlyInactive)
+                                        {
+                                            <button type="button" data-conn-status="permanently_inactive" data-id="@c.Id" data-account="@c.AccountId" title="Retire permanently" class="grid h-8 w-8 place-items-center rounded-lg border border-rose-400/40 text-rose-300 transition hover:bg-rose-400/10"><i data-lucide="circle-x" class="h-3.5 w-3.5"></i></button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        }
+    </section>
+
+    <!-- ------------------------------ equipment ------------------------------ -->
+    <section data-panel="equipment" hidden>
+        @await Html.PartialAsync("_TabBanner", ("technical", "equipment", "Equipment bay", "Stock available for installations"))
+
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Equipment bay</h2>
+                <p class="mt-1 text-sm text-slate-500">Modems, routers, telephones and cabling. Add new products, receive deliveries or correct counts.</p>
+            </div>
+            <button type="button" id="add-equipment" class="btn-glow flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white"><i data-lucide="plus" class="h-4 w-4"></i>Add equipment</button>
+        </div>
+        <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="10" data-search-placeholder="Search product, type, vendor…">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[820px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @{ var eh = new[] { "Product", "Type", "Vendor", "Unit price", "Stock on hand", "Reorder level", "Update" }; }
+                        @for (var i = 0; i < eh.Length; i++) { <th @(i == eh.Length - 1 || i == 4 ? "" : "data-sort") class="@Th @(i == eh.Length - 1 ? "text-right" : "")">@eh[i]</th> }
+                    </tr></thead>
+                    <tbody>
+                        @foreach (var e in Model.Equipment)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        @Ui.Thumb(e.ImageUrl, e.Name, Fmt.Initials(e.Name), "h-12 w-12", "rounded-xl", "bg-amber-400/10 text-amber-300 ring-1 ring-amber-400/25")
+                                        <span class="font-semibold text-slate-200">@e.Name</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3.5 capitalize text-slate-400">@e.Type</td>
+                                <td class="px-4 py-3.5 text-xs text-slate-500">@e.Vendor?.Name</td>
+                                <td class="px-4 py-3.5 text-slate-300">@Fmt.Money(e.UnitPrice)</td>
+                                <td class="px-4 py-3.5">
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" min="0" value="@e.Stock" data-stock-input="@e.Id" data-original="@e.Stock" class="field w-24 py-1.5" />
+                                        @if (e.Stock <= e.ReorderLevel)
+                                        {
+                                            <span class="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">Low</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3.5 text-slate-500">@e.ReorderLevel</td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <button type="button" data-equip-photo="@e.Id" data-name="@e.Name" data-url="@e.ImageUrl" class="mr-1 inline-flex items-center gap-1.5 rounded-lg border border-slate-700/70 px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:border-amber-400/50 hover:text-amber-300"><i data-lucide="image" class="h-3.5 w-3.5"></i>Photo</button>
+                                    <button type="button" data-receive="@e.Id" data-name="@e.Name" class="mr-1 inline-flex items-center gap-1.5 rounded-lg border border-slate-700/70 px-3 py-1.5 text-[11px] font-bold text-slate-300 transition hover:border-amber-400/50 hover:text-amber-300">+ Receive</button>
+                                    <button type="button" disabled data-stock-save="@e.Id" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/40 px-3 py-1.5 text-[11px] font-bold text-amber-300 transition hover:bg-amber-400/10 disabled:opacity-40">
+                                        <span data-icon-slot><i data-lucide="save" class="h-3.5 w-3.5"></i></span>
+                                        Save
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="border-t border-slate-800 px-6 py-4 text-xs text-slate-500">
+                <i data-lucide="wrench" class="mr-2 inline h-3.5 w-3.5"></i>
+                Stock decrements automatically when equipment is issued during provisioning.
+            </div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ tickets ------------------------------ -->
+    <section data-panel="tickets" hidden>
+        @await Html.PartialAsync("_TabBanner", ("technical", "tickets", "My tickets", "Customer complaints assigned to you"))
+        @await Html.PartialAsync("_TicketsPanel", "technical")
+    </section>
+</div>
+
+@section Scripts {
+    <script type="application/json" id="tech-data">@Html.Raw(J(new {
+        plans = Model.Plans.Select(p => new { id = p.Id, type = p.ConnectionType, label = p.Category + " · " + p.Name + " — " + Fmt.Money(p.Price) }),
+        vendors = Model.Vendors.Select(v => new { value = v.Id.ToString(), label = v.Name }),
+    }))</script>
+    <script src="~/js/technical.js" asp-append-version="true"></script>
+    <script src="~/js/tickets.js" asp-append-version="true"></script>
+}

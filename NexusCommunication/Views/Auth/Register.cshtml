@@ -1,0 +1,189 @@
+@model RegisterVm
+@{
+    ViewData["Title"] = "Create your account — Nexus Communication System";
+    var perks = new[]
+    {
+        ("radar", "Request a connection online", "Apply for dial-up, broadband or a landline without visiting an outlet."),
+        ("scan-search", "Follow every step", "Your 11-digit order id moves from feasibility to activation in real time."),
+        ("receipt", "See bills and dues", "Invoices with 12.24% service tax, payments received and what is still owed."),
+    };
+}
+<main class="grid min-h-screen lg:grid-cols-[1fr_1.15fr]">
+    <!-- story side -->
+    <div class="relative hidden overflow-hidden lg:block">
+        <img src="@Ui.Asset("/images/hero/register-visual")" alt="" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-r from-ink-950/50 via-ink-950/70 to-ink-950"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent to-ink-950/30"></div>
+        <div class="relative flex h-full flex-col justify-between p-12">
+            <div class="flex items-center justify-between">
+                <a href="/" class="flex items-center gap-3 text-slate-300 transition hover:text-cyan-300">
+                    <i data-lucide="arrow-left" class="h-4 w-4"></i><span class="text-sm font-semibold">Back to site</span>
+                </a>
+            </div>
+            <div>
+                <p class="fade-up flex items-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-cyan-300" style="--d:0s">
+                    <i data-lucide="user-plus" class="h-4 w-4"></i> Customer portal
+                </p>
+                <h1 class="fade-up mt-5 max-w-md font-display text-5xl font-bold leading-[1.04] text-slate-100" style="--d:.1s">
+                    Get connected.
+                    <span class="text-gradient block">In a few minutes.</span>
+                </h1>
+                <ul class="mt-10 space-y-5">
+                    @{ var n = 0; }
+                    @foreach (var p in perks)
+                    {
+                        <li class="fade-up flex gap-4" style="--d:@((0.2 + n++ * 0.12).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))s">
+                            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-400/10 ring-1 ring-cyan-400/30"><i data-lucide="@p.Item1" class="h-[18px] w-[18px] text-cyan-300"></i></span>
+                            <span>
+                                <span class="block text-sm font-semibold text-slate-100">@p.Item2</span>
+                                <span class="block text-sm text-slate-400">@p.Item3</span>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- form side -->
+    <div class="relative flex items-center justify-center px-5 py-14 sm:px-10">
+        <div class="grid-bg absolute inset-0 opacity-60 lg:opacity-30"></div>
+        <div class="pointer-events-none absolute left-1/2 top-[-8rem] h-72 w-[30rem] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[110px]"></div>
+
+        <div class="fade-up relative w-full max-w-xl">
+            <a href="/" class="mb-6 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-cyan-300 lg:hidden">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i> Back to site
+            </a>
+
+            <div class="glass-strong rounded-[1.75rem] p-7 sm:p-10">
+                <div class="flex items-center gap-3">
+                    <img src="~/images/brand/logo-mark.png" alt="Nexus" class="h-12 w-auto drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]" />
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-100">Create your account</h2>
+                        <p class="text-xs text-slate-500">Already registered? <a href="/login" class="font-semibold text-cyan-300 hover:underline">Sign in</a></p>
+                    </div>
+                </div>
+
+                <form id="register-form" method="post" action="/register" enctype="multipart/form-data" class="mt-8 grid gap-4 sm:grid-cols-2" novalidate>
+                    @Html.AntiForgeryToken()
+
+                    <div class="flex items-center gap-4 sm:col-span-2">
+                        <span class="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500/25 to-violet-500/25 ring-1 ring-cyan-400/30">
+                            <i data-lucide="camera" class="h-6 w-6 text-cyan-300"></i>
+                            <img id="reg-photo-preview" alt="Profile photo preview" class="absolute inset-0 hidden h-full w-full object-cover" />
+                        </span>
+                        <label class="block min-w-0 flex-1">
+                            <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Profile photo (optional)</span>
+                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" data-img-input data-img-preview-target="#reg-photo-preview" class="field !py-2 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyan-300" />
+                            <span data-img-input-error class="mt-1 block text-xs text-rose-300"></span>
+                        </label>
+                    </div>
+
+                    <label class="block sm:col-span-2">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Full name *</span>
+                        <input name="Name" value="@Model.Name" required maxlength="200" autocomplete="name" placeholder="As on your ID proof" class="field" />
+                    </label>
+
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Contact number *</span>
+                        <input name="Phone" value="@Model.Phone" required maxlength="50" autocomplete="tel" placeholder="+1 555 0100" class="field" />
+                    </label>
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">E-mail</span>
+                        <input name="Email" type="email" value="@Model.Email" maxlength="200" autocomplete="email" placeholder="optional" class="field" />
+                    </label>
+
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">City *</span>
+                        <select name="City" required class="field">
+                            <option value="" disabled selected="@string.IsNullOrEmpty(Model.City)">Select your city…</option>
+                            @foreach (var c in Fmt.Cities)
+                            {
+                                <option value="@c.Name" selected="@(Model.City == c.Name)">@c.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Address *</span>
+                        <input name="Address" value="@Model.Address" required maxlength="400" autocomplete="street-address" placeholder="House, street, area" class="field" />
+                    </label>
+
+                    <div class="sm:col-span-2 border-t border-slate-800 pt-2"></div>
+
+                    <label class="block sm:col-span-2">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Choose a username *</span>
+                        <input name="Username" value="@Model.Username" required minlength="3" maxlength="50" autocomplete="username" placeholder="letters, numbers, . _ -" class="field" />
+                    </label>
+
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Password *</span>
+                        <span class="relative block">
+                            <input id="reg-pass" name="Password" type="password" required minlength="6" autocomplete="new-password" placeholder="min 6 characters" class="field pr-11" />
+                            <button type="button" data-toggle-pass="reg-pass" aria-label="Show password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                        </span>
+                        <span class="mt-2 flex items-center gap-2">
+                            <span data-strength-for="reg-pass" class="strength flex flex-1 gap-1"><span></span><span></span><span></span><span></span></span>
+                            <span data-strength-label class="w-16 text-right text-[11px] font-semibold text-slate-400"></span>
+                        </span>
+                    </label>
+                    <label class="block">
+                        <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Confirm password *</span>
+                        <input id="reg-confirm" name="Confirm" type="password" required autocomplete="new-password" class="field" />
+                        <span id="reg-match" class="mt-2 block h-4 text-[11px] font-semibold"></span>
+                    </label>
+
+                    <details class="group sm:col-span-2 rounded-2xl border border-slate-800 bg-ink-900/50 px-4 py-3" @(string.IsNullOrEmpty(Model.OrderNo) ? "" : "open")>
+                        <summary class="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-slate-300">
+                            <i data-lucide="link" class="h-4 w-4 text-violet-300"></i>
+                            Already applied at a retail outlet?
+                            <i data-lucide="chevron-down" class="ml-auto h-4 w-4 transition group-open:rotate-180"></i>
+                        </summary>
+                        <p class="mt-3 text-xs leading-relaxed text-slate-500">Enter the order id on your receipt (e.g. <span class="font-mono">B0000000005</span>) together with the same contact number as above and we will attach your earlier orders to this account.</p>
+                        <input name="OrderNo" value="@Model.OrderNo" maxlength="20" placeholder="Order id (optional)" class="field mt-3 font-mono uppercase tracking-wider" />
+                    </details>
+
+                    <p id="reg-error" @(string.IsNullOrEmpty(Model.Error) ? "hidden" : "") class="flex items-start gap-2 text-sm text-rose-300 sm:col-span-2">
+                        <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i><span id="reg-error-text">@Model.Error</span>
+                    </p>
+
+                    <button id="reg-btn" class="btn-glow flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60 sm:col-span-2">
+                        <span data-icon-slot><i data-lucide="user-plus" class="h-4 w-4"></i></span>
+                        <span id="reg-label">Create account</span>
+                    </button>
+                    <p class="text-center text-xs text-slate-600 sm:col-span-2">Customer accounts only. Staff logins are issued by the administrator.</p>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('register-form');
+            var pass = document.getElementById('reg-pass'), conf = document.getElementById('reg-confirm');
+            var match = document.getElementById('reg-match');
+            var err = document.getElementById('reg-error'), errText = document.getElementById('reg-error-text');
+
+            function checkMatch() {
+                if (!conf.value) { match.textContent = ''; return true; }
+                var ok = pass.value === conf.value;
+                match.textContent = ok ? '✓ Passwords match' : 'Passwords do not match yet';
+                match.className = 'mt-2 block h-4 text-[11px] font-semibold ' + (ok ? 'text-emerald-300' : 'text-rose-300');
+                return ok;
+            }
+            pass.addEventListener('input', checkMatch);
+            conf.addEventListener('input', checkMatch);
+
+            form.addEventListener('submit', function (e) {
+                var bad = null;
+                form.querySelectorAll('[required]').forEach(function (el) { if (!bad && !el.value.trim()) bad = el; });
+                if (bad) { e.preventDefault(); errText.textContent = 'Please fill in all required fields.'; err.hidden = false; bad.focus(); return; }
+                if (pass.value.length < 6) { e.preventDefault(); errText.textContent = 'Password must be at least 6 characters.'; err.hidden = false; pass.focus(); return; }
+                if (!checkMatch()) { e.preventDefault(); errText.textContent = 'The two passwords do not match.'; err.hidden = false; conf.focus(); return; }
+                document.getElementById('reg-label').textContent = 'Creating your account…';
+                nx.busy(document.getElementById('reg-btn'), true);
+            });
+        })();
+    </script>
+}

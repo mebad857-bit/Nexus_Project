@@ -1,0 +1,10 @@
+
+.vs/
+**/.vs/
+bin/
+obj/
+*.user
+*.suo
+NexusCommunication/appsettings.json
+NexusCommunication/appsettings.Development.json
+NexusCommunication/Properties/PublishProfiles/

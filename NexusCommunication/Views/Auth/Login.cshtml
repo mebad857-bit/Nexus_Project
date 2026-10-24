@@ -1,0 +1,117 @@
+@model LoginVm
+@{
+    ViewData["Title"] = "Sign in — Nexus Communication System";
+    var bullets = new[] { "Provision connections & run feasibility", "Generate invoices with 12.24% service tax", "Track 11-digit orders and 16-digit accounts" };
+}
+<main class="grid min-h-screen lg:grid-cols-2">
+    <!-- visual side -->
+    <div class="relative hidden overflow-hidden lg:block">
+        <img src="@Ui.Asset("/images/hero/login-visual")" alt="Nexus network constellation" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-r from-ink-950/40 via-ink-950/55 to-ink-950"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent to-ink-950/30"></div>
+        <div class="relative flex h-full flex-col justify-between p-12">
+            <div class="flex items-center justify-between">
+                <a href="/" class="flex items-center gap-3 text-slate-300 transition hover:text-cyan-300">
+                    <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                    <span class="text-sm font-semibold">Back to site</span>
+                </a>
+            </div>
+
+            <div>
+                <div class="fade-up" style="--d:0s">
+                    <p class="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">
+                        <i data-lucide="radar" class="h-4 w-4"></i>
+                        Nexus command console
+                    </p>
+                    <h1 class="mt-5 max-w-md font-display text-5xl font-bold leading-[1.04] text-slate-100">
+                        One login.
+                        <span class="text-gradient block">The whole network.</span>
+                    </h1>
+                    <p class="mt-5 max-w-sm text-sm leading-relaxed text-slate-400">
+                        Admins, accounts officers, field engineers, retail executives and customers — each
+                        desk gets its own instruments on the same backbone.
+                    </p>
+                </div>
+
+                <ul class="fade-up mt-10 space-y-3" style="--d:0.2s">
+                    @foreach (var t in bullets)
+                    {
+                        <li class="flex items-center gap-3 text-sm text-slate-300">
+                            <span class="grid h-7 w-7 place-items-center rounded-lg bg-cyan-400/10 ring-1 ring-cyan-400/30">
+                                <i data-lucide="key-round" class="h-3.5 w-3.5 text-cyan-300"></i>
+                            </span>
+                            @t
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- form side -->
+    <div class="relative flex items-center justify-center px-5 py-16 sm:px-10">
+        <div class="grid-bg absolute inset-0 opacity-70 lg:opacity-40"></div>
+        <div class="pointer-events-none absolute left-1/2 top-[-8rem] h-72 w-[30rem] -translate-x-1/2 rounded-full bg-violet-600/12 blur-[110px]"></div>
+
+        <div class="fade-up relative w-full max-w-md" style="--d:0s">
+            <a href="/" class="mb-8 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-cyan-300 lg:hidden">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i> Back to site
+            </a>
+
+            <div class="glass-strong rounded-[1.75rem] p-8 sm:p-10">
+                <div class="flex items-center gap-3">
+                    <img src="~/images/brand/logo-mark.png" alt="Nexus" class="h-12 w-auto drop-shadow-[0_0_12px_rgba(56,189,248,0.5)]" />
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-slate-100">Sign in to Nexus</h2>
+                        <p class="text-xs text-slate-500">Staff &amp; customer credentials</p>
+                    </div>
+                </div>
+
+                <form id="login-form" method="post" action="/login" class="mt-8 space-y-4">
+                    @Html.AntiForgeryToken()
+                    <div class="relative">
+                        <i data-lucide="user" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
+                        <input id="username" name="Username" value="@Model.Username" placeholder="Username" autocomplete="username" required class="field pl-11" />
+                    </div>
+                    <div class="relative">
+                        <i data-lucide="lock" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
+                        <input id="password" name="Password" type="password" placeholder="Password" autocomplete="current-password" required class="field pl-11 pr-11" />
+                        <button type="button" data-toggle-pass="password" aria-label="Show password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-200"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                    </div>
+
+                    <p class="-mt-1 text-right text-xs"><a href="/forgot-password" class="font-semibold text-cyan-300 hover:underline">Forgot password?</a></p>
+
+                    <p id="login-error" @(string.IsNullOrEmpty(Model.Error) ? "hidden" : "") class="flex items-center gap-2 overflow-hidden text-sm text-rose-300">
+                        <i data-lucide="circle-alert" class="h-4 w-4 shrink-0"></i>
+                        <span id="login-error-text">@Model.Error</span>
+                    </p>
+
+                    <button id="login-btn" class="btn-glow flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60">
+                        <span data-icon-slot><i data-lucide="arrow-right" class="h-4 w-4"></i></span>
+                        <span id="login-label">Enter console</span>
+                    </button>
+                </form>
+
+                <div class="mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3.5 text-center text-sm text-slate-300">
+                    New customer?
+                    <a href="/register" class="font-semibold text-cyan-300 hover:underline">Create a free account</a>
+                    <span class="mt-0.5 block text-xs text-slate-500">Forgot your password? <a href="/forgot-password" class="font-semibold text-cyan-300 hover:underline">Reset it with your username or e-mail</a>.</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            var form = document.getElementById('login-form');
+            form.addEventListener('submit', function () {
+                document.getElementById('login-btn').disabled = true;
+                document.getElementById('login-label').textContent = 'Verifying…';
+                nx.busy(document.getElementById('login-btn'), true);
+            });
+        })();
+    </script>
+}

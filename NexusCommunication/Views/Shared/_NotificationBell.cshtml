@@ -1,0 +1,21 @@
+@* The notification bell. Only for signed-in people. "nav" = public navbar, "side" = desktop sidebar, anything else = dashboard mobile bar.
+   Behaviour: wwwroot/js/notifications.js  ·  Styles: _NotificationAssets.cshtml  ·  Data: /api/notifications *@
+@using Microsoft.EntityFrameworkCore
+@inject NexusCommunication.Data.AppDbContext Db
+@inject NexusCommunication.Services.NotificationService Notes
+@model string
+@if (User.Identity?.IsAuthenticated == true)
+{
+    var me = User.ToSession().Id;
+    if (User.IsInRole(AppRoles.Customer)) { await Notes.SyncBillRemindersAsync(me); }   // bill due reminders (once per request)
+    var unread = await Db.Notifications.AsNoTracking().CountAsync(n => n.UserId == me && !n.IsRead);
+    var shape = Model == "nav" ? "h-10 w-10 rounded-full border-slate-700/80" : Model == "side" ? "h-9 w-9 rounded-xl border-slate-700/70" : "h-10 w-10 rounded-xl border-slate-700/70";
+    <div class="nxn" data-nxn>
+        <button type="button" data-nxn-btn aria-haspopup="dialog" aria-expanded="false"
+                aria-label="@(unread > 0 ? $"Notifications, {unread} unread" : "Notifications")"
+                class="relative grid place-items-center border text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300 @shape">
+            <i data-lucide="bell" class="h-4 w-4"></i>
+            <span data-nxn-badge class="nxn-badge" @(unread > 0 ? "" : "hidden")>@(unread > 99 ? "99+" : unread.ToString())</span>
+        </button>
+    </div>
+}

@@ -1,0 +1,452 @@
+@model PortalVm
+@{
+    ViewData["Title"] = "My Nexus — Customer Portal";
+    ViewData["Role"] = "customer";
+    ViewData["RoleLabel"] = "Customer Portal";
+    ViewData["ScopeName"] = Model.Customer != null ? Model.Customer.City + " · " + Model.Customer.CityCode : null;
+    Layout = "_DashboardLayout";
+
+    var c = Model.Customer;
+    var tabs = new (string, string, string)[] { ("overview", "Overview", "signal"), ("orders", "My Orders", "clipboard-list"), ("connections", "My Connections", "id-card"), ("bills", "My Bills", "receipt"), ("tickets", "Complaints", "life-buoy"), ("feedback", "Feedback", "message-square-heart"), ("profile", "Profile", "user-round") };
+    ViewData["NavTabs"] = tabs;
+    const string Lbl = "mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500";
+    var inProgress = Model.OrderList.Where(o => o.Status == OrderStatus.Pending || o.Status == OrderStatus.Feasible).ToList();
+}
+
+@if (c == null)
+{
+    <div class="pt-10">@Ui.Empty("Customer profile not found", "This login is not linked to a subscriber record. Please visit a Nexus retail outlet.")</div>
+}
+else
+{
+    <div>
+        <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <h1 class="font-display text-3xl font-bold tracking-tight text-slate-100">Welcome back, @c.Name.Split(' ')[0]</h1>
+                <p class="mt-1.5 text-sm text-slate-500">@c.City · subscriber since @Fmt.Date(c.CreatedAt)</p>
+            </div>
+            @if (Model.Dues > 0)
+            {
+                <div class="flex items-center gap-3">
+                    <div class="glass flex items-center gap-2 rounded-full border-rose-400/40 px-4 py-2 text-xs font-semibold text-rose-300">
+                        <i data-lucide="coins" class="h-3.5 w-3.5"></i>
+                        @Fmt.Money(Model.Dues) outstanding
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Bill due reminder: shown while a bill is overdue or due within BillReminder.WarnDays days. Uses the existing bills, no extra table. *@
+        @if (Model.DueReminders.Count > 0)
+        {
+            var nowUtc = DateTime.UtcNow;
+            var anyLate = Model.DueReminders.Any(b => BillReminder.IsOverdue(b, nowUtc));
+            var shown = Model.DueReminders.Take(3).ToList();
+            var more = Model.DueReminders.Count - shown.Count;
+            <div role="alert" aria-live="polite" class="mb-8 overflow-hidden rounded-2xl border @(anyLate ? "border-rose-400/40 bg-rose-400/10" : "border-amber-400/40 bg-amber-400/10")">
+                <div class="flex flex-wrap items-center gap-4 px-5 py-4">
+                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border @(anyLate ? "border-rose-400/40 bg-rose-400/10 text-rose-300" : "border-amber-400/40 bg-amber-400/10 text-amber-300")">
+                        <i data-lucide="@(anyLate ? "circle-alert" : "clock")" class="h-5 w-5"></i>
+                    </span>
+                    <div class="min-w-0 flex-1 space-y-1.5">
+                        <p class="font-display text-xs font-bold uppercase tracking-[0.18em] @(anyLate ? "text-rose-300" : "text-amber-300")">@(anyLate ? "Payment overdue" : "Payment reminder")</p>
+                        @foreach (var b in shown)
+                        {
+                            var late = BillReminder.IsOverdue(b, nowUtc);
+                            <p class="text-sm font-semibold text-slate-200">
+                                Bill @b.BillNo · @Fmt.Money(b.DueAmount) due on @Fmt.Date(b.DueDate)
+                                <span class="ml-1 inline-block rounded-full border px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-[0.1em] @(late ? "border-rose-400/40 text-rose-300" : "border-amber-400/40 text-amber-300")">@BillReminder.When(b, nowUtc)</span>
+                            </p>
+                        }
+                        @if (more > 0)
+                        {
+                            <p class="text-xs text-slate-500">+ @more more @(more == 1 ? "bill" : "bills") need payment</p>
+                        }
+                    </div>
+                    @{ var firstDue = Model.DueReminders[0]; }
+                    <button type="button" data-pay-bill="@firstDue.Id" data-bill-no="@firstDue.BillNo" data-period="@firstDue.Period" data-due="@Fmt.Dec(firstDue.DueAmount)" class="btn-glow shrink-0 rounded-lg px-4 py-2 text-xs font-bold text-white">Pay now</button>
+                    <button type="button" data-go-tab="bills" class="shrink-0 rounded-lg border px-3.5 py-2 text-xs font-semibold transition @(anyLate ? "border-rose-400/40 text-rose-300 hover:bg-rose-400/10" : "border-amber-400/40 text-amber-300 hover:bg-amber-400/10")">View bills</button>
+                </div>
+            </div>
+        }
+
+        <div class="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            @Ui.StatCard("id-card", "My connections", Fmt.Num(Model.Connections), $"{Model.Live} active right now", "cyan")
+            @Ui.StatCard("clipboard-list", "Orders placed", Fmt.Num(Model.Orders), $"{Model.PendingOrders} under survey", "violet")
+            @Ui.StatCard("wallet", "Outstanding dues", Fmt.Money(Model.Dues), Model.Dues > 0 ? "Pay at any outlet" : "You are all settled", Model.Dues > 0 ? "rose" : "emerald")
+            @Ui.StatCard("circle-check", "Account standing", Model.Dues > 0 ? "Dues pending" : "Good", Model.Dues > 0 ? "Settle at any outlet" : "No unpaid invoices", Model.Dues > 0 ? "amber" : "emerald")
+        </div>
+
+        @await Html.PartialAsync("_TabBar", new TabBarVm("sky", tabs))
+
+        <!-- ------------------------------ overview ------------------------------ -->
+        <section data-panel="overview" hidden>
+            @await Html.PartialAsync("_DeskHero", ("customer", "Your connected home", "Support & service", "Bills & payments"))
+
+            <div class="space-y-8">
+                <div class="grid gap-6 lg:grid-cols-2">
+                    <div class="glass-strong relative overflow-hidden rounded-3xl p-7">
+                        <div class="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-500/15 blur-3xl"></div>
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Live services</h3>
+                        <div class="mt-5 space-y-3">
+                            @foreach (var x in Model.ConnectionList.Take(3))
+                            {
+                                <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-ink-900/60 px-4 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        @Ui.TypeChip(x.ConnectionType)
+                                        <div>
+                                            <p class="font-mono text-sm font-bold tracking-wider text-slate-100">@x.AccountId</p>
+                                            <p class="text-xs text-slate-500">@x.Plan?.Category · @x.Plan?.Name</p>
+                                        </div>
+                                    </div>
+                                    @Ui.Pill(x.Status, Fmt.ConnStatus(x.Status))
+                                </div>
+                            }
+                            @if (Model.ConnectionList.Count == 0)
+                            {
+                                <p class="text-sm text-slate-500">No connections yet — request one from the Orders tab.</p>
+                            }
+                        </div>
+                        <button type="button" data-go-tab="connections" class="mt-5 text-sm font-semibold text-sky-300 hover:underline">View all connections →</button>
+                    </div>
+
+                    <div class="glass rounded-3xl p-7">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Latest invoices</h3>
+                        <div class="mt-5 space-y-3">
+                            @foreach (var b in Model.Bills.Take(3))
+                            {
+                                <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-ink-900/60 px-4 py-3.5">
+                                    <div>
+                                        <p class="font-mono text-xs text-slate-400">@b.BillNo</p>
+                                        <p class="text-sm font-semibold text-slate-200">@b.Period · @b.Connection.AccountId</p>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="font-display font-bold text-slate-100">@Fmt.Money(b.Total)</span>
+                                        @Ui.Pill(b.Status, Fmt.BillStatus(b.Status))
+                                    </div>
+                                </div>
+                            }
+                            @if (Model.Bills.Count == 0)
+                            {
+                                <p class="text-sm text-slate-500">Invoices appear here once billing begins.</p>
+                            }
+                        </div>
+                        <button type="button" data-go-tab="bills" class="mt-5 text-sm font-semibold text-sky-300 hover:underline">Full billing history →</button>
+                    </div>
+                </div>
+
+                @if (inProgress.Count > 0)
+                {
+                    <div class="glass rounded-3xl p-7">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">In progress</h3>
+                        <div class="mt-4 space-y-3">
+                            @foreach (var o in inProgress)
+                            {
+                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-ink-900/60 px-4 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        @Ui.TypeChip(o.ConnectionType)
+                                        <span class="font-mono text-sm font-bold text-sky-300">@o.OrderNo</span>
+                                    </div>
+                                    @Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- ------------------------------- orders ------------------------------- -->
+        <section data-panel="orders" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "orders", "My orders", "Track every request you have made"))
+
+            <div class="grid gap-6 lg:grid-cols-3">
+                <div class="glass-strong rounded-3xl p-7">
+                    <h3 class="font-display text-lg font-bold text-slate-100">Request a new connection</h3>
+                    <p class="mt-1.5 text-sm text-slate-500">Your registered address is used for the feasibility survey.</p>
+                    <form id="portal-order-form" class="mt-6 space-y-4">
+                        <label class="block">
+                            <span class="@Lbl">Plan</span>
+                            <select id="p-plan" required class="field">
+                                <option value="" disabled selected>Choose tariff…</option>
+                                @foreach (var g in new[] { ("dialup", "Dial-Up"), ("broadband", "Broadband"), ("landline", "Landline") })
+                                {
+                                    <optgroup label="@g.Item2">
+                                        @foreach (var p in Model.Plans.Where(p => p.ConnectionType == g.Item1))
+                                        {
+                                            <option value="@p.Id" data-type="@p.ConnectionType" data-deposit="@Fmt.Dec(p.Deposit)">@p.Category · @p.Name — @Fmt.Money(p.Price)</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="@Lbl">Lines</span>
+                            <input id="p-qty" type="number" min="1" max="10000" value="1" class="field" />
+                        </label>
+                        <p id="p-discount" hidden class="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-300">
+                            <i data-lucide="badge-percent" class="h-4 w-4"></i> <span id="p-discount-text"></span>
+                        </p>
+                        <p id="p-deposit" hidden class="text-xs text-slate-500"></p>
+                        <p id="p-error" class="text-sm text-rose-300"></p>
+                        <p id="p-done" hidden class="rounded-xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-300">
+                            Request lodged — track it with ID <span id="p-done-id" class="font-mono font-bold"></span>
+                        </p>
+                        <button id="p-submit" disabled class="btn-glow flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50">
+                            <span data-icon-slot><i data-lucide="clipboard-list" class="h-4 w-4"></i></span>
+                            Submit request
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass overflow-hidden rounded-3xl lg:col-span-2" data-table data-page-size="6" data-search-placeholder="Search my orders…">
+                    <div class="border-b border-slate-800 px-6 py-4">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Order history</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] text-sm">
+                            <tbody>
+                                @if (Model.OrderList.Count == 0)
+                                {
+                                    <tr><td class="px-6 py-8">@Ui.Empty("No orders yet", "Your first request will appear here with its tracking ID.")</td></tr>
+                                }
+                                @foreach (var o in Model.OrderList)
+                                {
+                                    <tr class="table-row">
+                                        <td class="px-6 py-4">
+                                            <button type="button" data-copy="@o.OrderNo" title="Copy order id" class="font-mono text-xs font-bold tracking-wider text-sky-300 hover:underline">@o.OrderNo</button>
+                                            <p class="text-[11px] text-slate-500">@Fmt.Date(o.CreatedAt)@(o.Quantity > 1 ? $" · ×{o.Quantity} lines" : "")</p>
+                                        </td>
+                                        <td class="px-4 py-4">@Ui.TypeChip(o.ConnectionType)</td>
+                                        <td class="px-4 py-4 text-xs text-slate-400">@o.Plan?.Category · @o.Plan?.Name</td>
+                                        <td class="px-6 py-4 text-right">
+                                            @Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))
+                                            @{
+                                                var step = o.Status switch { "pending" => 1, "feasible" => 2, "connected" => 3, _ => 0 };
+                                            }
+                                            @if (step > 0)
+                                            {
+                                                <div class="ml-auto mt-2.5 flex w-32 items-center gap-1" title="Applied → Surveyed → Connected">
+                                                    @for (var i = 1; i <= 3; i++) { <span class="h-1.5 flex-1 rounded-full @(i <= step ? "bg-sky-400" : "bg-slate-800")"></span> }
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(o.Remark) && o.Status != OrderStatus.Connected)
+                                            {
+                                                <p class="mt-1.5 max-w-[14rem] text-[11px] leading-snug text-slate-500 sm:ml-auto">@o.Remark</p>
+                                            }
+                                            @if (o.Status == OrderStatus.Pending)
+                                            {
+                                                <button type="button" data-cancel-order="@o.Id" data-order-no="@o.OrderNo" class="mt-2 text-[11px] font-semibold text-rose-300 hover:underline">Withdraw request</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ----------------------------- connections ----------------------------- -->
+        <section data-panel="connections" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "connections", "My connections", "Your lines and their status"))
+
+            @if (Model.ConnectionList.Count == 0)
+            {
+                @Ui.Empty("No connections assigned", "Once a feasible order is provisioned, your 16-digit account ID shows up here.")
+            }
+            else
+            {
+                <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach (var x in Model.ConnectionList)
+                    {
+                        <div class="glass-strong card-hover relative overflow-hidden rounded-3xl p-6">
+                            <div class="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-sky-500/10 blur-2xl"></div>
+                            <div class="flex items-center justify-between">
+                                @Ui.TypeChip(x.ConnectionType)
+                                @Ui.Pill(x.Status, Fmt.ConnStatus(x.Status))
+                            </div>
+                            <p class="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Account ID</p>
+                            <p class="mt-1 font-mono text-xl font-bold tracking-[0.1em] text-gradient">@x.AccountId</p>
+                            <div class="mt-6 space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-slate-500">Plan</span><span class="text-slate-200">@x.Plan?.Category · @x.Plan?.Name</span></div>
+                                @if (!string.IsNullOrEmpty(x.Plan?.Speed))
+                                {
+                                    <div class="flex justify-between"><span class="text-slate-500">Speed</span><span class="text-slate-200">@x.Plan?.Speed</span></div>
+                                }
+                                <div class="flex justify-between"><span class="text-slate-500">Monthly charge</span><span class="font-display font-bold text-slate-100">@Fmt.Money(x.Plan?.Price)</span></div>
+                                <div class="flex justify-between"><span class="text-slate-500">On network since</span><span class="text-slate-200">@Fmt.Date(x.ActivatedAt)</span></div>
+                            </div>
+                            <div class="mt-5 flex gap-2 border-t border-slate-800 pt-4">
+                                <button type="button" data-copy="@x.AccountId" class="flex-1 rounded-lg border border-slate-700/70 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-sky-400/50 hover:text-sky-300">Copy id</button>
+                                <a href="/track?q=@x.AccountId" class="flex-1 rounded-lg border border-sky-400/40 px-3 py-2 text-center text-xs font-semibold text-sky-300 transition hover:bg-sky-400/10">Live status</a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <!-- -------------------------------- bills -------------------------------- -->
+        <section data-panel="bills" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "bills", "My bills", "Invoices and payment history"))
+
+            @await Html.PartialAsync("_PaymentAssets")
+            @if (Model.Bills.Count == 0)
+            {
+                @Ui.Empty("No invoices yet", "The accounts desk publishes your monthly invoice here.")
+            }
+            else
+            {
+                <div class="space-y-4">
+                    @foreach (var b in Model.Bills)
+                    {
+                        <div class="glass flex flex-wrap items-center gap-5 rounded-3xl p-6">
+                            <div class="min-w-[150px]">
+                                <p class="font-mono text-sm font-bold text-sky-300">@b.BillNo</p>
+                                <p class="text-xs text-slate-500">@b.Period</p>
+                            </div>
+                            <div class="min-w-[150px]">
+                                <p class="font-mono text-xs text-slate-400">@b.Connection.AccountId</p>
+                                <p class="text-xs text-slate-500">Due by @Fmt.Date(b.DueDate)</p>
+                            </div>
+                            <div class="grid flex-1 grid-cols-3 gap-3 text-center sm:min-w-[240px]">
+                                <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-3">
+                                    <p class="text-[10px] uppercase tracking-wider text-slate-500">Total</p>
+                                    <p class="font-display font-bold text-slate-100">@Fmt.Money(b.Total)</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-3">
+                                    <p class="text-[10px] uppercase tracking-wider text-slate-500">Paid</p>
+                                    <p class="font-display font-bold text-emerald-300">@Fmt.Money(b.PaidAmount)</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-3">
+                                    <p class="text-[10px] uppercase tracking-wider text-slate-500">Due</p>
+                                    <p class="font-display font-bold @(b.DueAmount > 0 ? "text-rose-300" : "text-emerald-300")">@Fmt.Money(b.DueAmount)</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                @Ui.Pill(b.Status, Fmt.BillStatus(b.Status))
+                                @if (b.Status != BillStatus.Paid && b.DueAmount > 0)
+                                {
+                                    <button type="button" data-pay-bill="@b.Id" data-bill-no="@b.BillNo" data-period="@b.Period" data-due="@Fmt.Dec(b.DueAmount)" class="btn-glow flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-white">
+                                        <i data-lucide="credit-card" class="h-3.5 w-3.5"></i> Pay now
+                                    </button>
+                                }
+                                <a href="/invoice/@b.Id" target="_blank" class="rounded-lg border border-sky-400/40 px-3 py-1.5 text-[11px] font-semibold text-sky-300 transition hover:bg-sky-400/10">View / print</a>
+                            </div>
+                        </div>
+                    }
+                    <p class="flex items-center gap-2 text-xs text-slate-500"><i data-lucide="flask-conical" class="h-3.5 w-3.5 text-amber-400"></i> <b class="font-semibold text-amber-300">Pay now</b> is a demo payment: no real money is charged and no card details are stored. You can still pay at any outlet or the accounts office.</p>
+                    <p class="text-xs text-slate-600">
+                        Bills include plan rental, metered usage, discounts and 12.24% government service tax. Replacement charges for
+                        customer-damaged equipment may appear under usage.
+                    </p>
+                </div>
+            }
+        </section>
+
+        <!-- ------------------------------ complaints ------------------------------ -->
+        <section data-panel="tickets" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "tickets", "Complaints", "Raise a problem and follow every reply"))
+            @await Html.PartialAsync("_TicketsPanel", "customer")
+        </section>
+
+        <!-- ------------------------------ feedback ------------------------------ -->
+        <section data-panel="feedback" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "feedback", "Feedback", "Tell us how we are doing"))
+
+            <div class="mx-auto max-w-2xl">
+                <div class="glass-strong rounded-3xl p-7">
+                    <h3 class="font-display text-lg font-bold text-slate-100">Tell us how we are doing</h3>
+                    <p class="mt-1.5 text-sm text-slate-500">Installation, billing, call quality or the counter experience — every message is read by the administration.</p>
+                    <form id="fb-form" data-name="@c.Name" data-contact="@c.Phone" class="mt-6 space-y-4">
+                        <div>
+                            <span class="@Lbl">Your rating</span>
+                            <div data-stars class="stars flex gap-1.5">
+                                <input type="hidden" value="5" id="fb-rating" />
+                                @for (var i = 1; i <= 5; i++) { <button type="button" data-v="@i" aria-label="@i star@(i > 1 ? "s" : "")"><i data-lucide="star" class="h-8 w-8 fill-current"></i></button> }
+                            </div>
+                        </div>
+                        <label class="block">
+                            <span class="@Lbl">About which service?</span>
+                            <select id="fb-type" class="field">
+                                <option value="">General</option>
+                                <option value="dialup">Dial-Up</option><option value="broadband">Broadband</option><option value="landline">Landline</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="@Lbl">Message</span>
+                            <textarea id="fb-msg" rows="4" required maxlength="4000" placeholder="What went well? What should we improve?" class="field resize-none"></textarea>
+                        </label>
+                        <p id="fb-error" class="text-sm text-rose-300"></p>
+                        <button id="fb-submit" class="btn-glow flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                            <span data-icon-slot><i data-lucide="send" class="h-4 w-4"></i></span> Send feedback
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ------------------------------- profile ------------------------------- -->
+        <section data-panel="profile" hidden>
+            @await Html.PartialAsync("_TabBanner", ("customer", "profile", "My profile", "Your details and photo"))
+
+            <div class="grid gap-6 lg:grid-cols-2">
+                <div class="glass rounded-3xl p-7 lg:col-span-2">
+                    @await Html.PartialAsync("_ImageManager", ("customers", c.Id, c.ImageUrl, c.Name, "My profile photo"))
+                </div>
+                <div class="glass-strong rounded-3xl p-7">
+                    <h3 class="font-display text-lg font-bold text-slate-100">Subscriber record</h3>
+                    <div class="mt-6 space-y-4 text-sm">
+                        @foreach (var row in new[] { ("Full name", c.Name), ("Registered city", $"{c.City} ({c.CityCode})"), ("ID proof on file", c.IdProof ?? "—"), ("Subscriber since", Fmt.Date(c.CreatedAt)) })
+                        {
+                            <div class="flex items-center justify-between border-b border-slate-800/70 pb-3">
+                                <span class="text-slate-500">@row.Item1</span>
+                                <span class="font-semibold text-slate-200">@row.Item2</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="mt-5 text-xs text-slate-600">Name, city and ID proof can only be amended at a retail outlet with original documents.</p>
+                </div>
+
+                <div class="glass rounded-3xl p-7">
+                    <h3 class="font-display text-lg font-bold text-slate-100">Update contact details</h3>
+                    <form id="profile-form" data-customer-id="@c.Id" class="mt-6 space-y-4">
+                        <label class="block"><span class="@Lbl">Primary phone</span><input name="phone" value="@c.Phone" required class="field" /></label>
+                        <label class="block"><span class="@Lbl">Alternate phone</span><input name="altPhone" value="@c.AltPhone" class="field" /></label>
+                        <label class="block"><span class="@Lbl">Email</span><input name="email" value="@c.Email" class="field" /></label>
+                        <label class="block"><span class="@Lbl">Correspondence address</span><textarea name="address" rows="2" required class="field resize-none">@c.Address</textarea></label>
+                        <p id="pf-error" class="text-sm text-rose-300"></p>
+                        <p id="pf-saved" hidden class="flex items-center gap-2 text-sm text-emerald-300">
+                            <i data-lucide="circle-check" class="h-4 w-4"></i> Contact details updated.
+                        </p>
+                        <button id="pf-submit" class="btn-glow flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                            <span data-icon-slot><i data-lucide="save" class="h-4 w-4"></i></span>
+                            Save changes
+                        </button>
+                    </form>
+                </div>
+
+                <div class="glass rounded-3xl p-7 lg:col-span-2">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/15 to-violet-500/15 ring-1 ring-slate-700"><i data-lucide="shield-check" class="h-5 w-5 text-cyan-300"></i></span>
+                            <div>
+                                <h3 class="font-display text-lg font-bold text-slate-100">Security</h3>
+                                <p class="text-sm text-slate-500">Change your password and see how to keep your account safe.</p>
+                            </div>
+                        </div>
+                        <a href="/account/security" class="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300"><i data-lucide="key-round" class="h-4 w-4"></i> Password &amp; security</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/js/portal.js" asp-append-version="true"></script>
+    <script src="~/js/tickets.js" asp-append-version="true"></script>
+    <script src="~/js/payments.js" asp-append-version="true"></script>
+}

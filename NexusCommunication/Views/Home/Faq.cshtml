@@ -1,0 +1,92 @@
+@model List<Faq>
+@{
+    ViewData["Title"] = "FAQ — Nexus Communication System";
+}
+<main class="relative min-h-screen">
+    @await Html.PartialAsync("_Nav")
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-[34rem] overflow-hidden">
+        <div class="grid-bg absolute inset-0"></div>
+        <div class="absolute left-1/2 top-[-10rem] h-96 w-[50rem] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[130px]"></div>
+    </div>
+
+    <section class="relative mx-auto max-w-4xl px-5 pb-20 pt-36 lg:px-8">
+        @await Html.PartialAsync("_SectionHeader", ("Help centre", "Questions, <span class=\"text-gradient\">answered.</span>",
+            (string?)"Everything customers ask us most about orders, activation, billing and bulk schemes. Can't find yours? Write to us.", true))
+
+        @if (Ui.AssetExists("/images/hero/faq-hero"))
+        {
+            <figure class="reveal relative mx-auto mt-12 aspect-[3/1] overflow-hidden rounded-[2rem] border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                <img src="@Ui.Asset("/images/hero/faq-hero")" alt="Nexus help centre" loading="lazy" onerror="this.parentElement.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent"></div>
+            </figure>
+        }
+
+        @if (Model.Count == 0)
+        {
+            <div class="mt-14">@Ui.Empty("No questions published yet", "Please check back soon, or send us a message from the contact page.")</div>
+        }
+        else
+        {
+            <div class="mx-auto mt-12 max-w-xl">
+                <div class="tt-search" style="max-width:none">
+                    <i data-lucide="search"></i>
+                    <input id="faq-search" type="search" class="field" placeholder="Search the questions…" aria-label="Search the questions" />
+                </div>
+            </div>
+
+            <div id="faq-list" class="mt-8 space-y-3">
+                @for (var i = 0; i < Model.Count; i++)
+                {
+                    var f = Model[i];
+                    <details class="faq-item glass" data-faq @(i == 0 ? "open" : "")>
+                        <summary>
+                            <span class="flex items-center gap-4">
+                                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-xs font-bold text-cyan-300">@((i + 1).ToString("00"))</span>
+                                <span>@f.Question</span>
+                            </span>
+                            <i data-lucide="chevron-down" class="faq-chev h-5 w-5 shrink-0 text-slate-500"></i>
+                        </summary>
+                        <div class="faq-body">@f.Answer</div>
+                    </details>
+                }
+                <p id="faq-none" hidden class="px-2 py-10 text-center text-sm text-slate-500">No question matches your search.</p>
+            </div>
+        }
+
+        <div class="glass-strong mt-14 flex flex-wrap items-center justify-between gap-5 rounded-3xl p-7">
+            <div class="flex items-center gap-4">
+                <span class="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/15 to-violet-500/15 ring-1 ring-slate-700">
+                    <i data-lucide="message-circle" class="h-5 w-5 text-cyan-300"></i>
+                </span>
+                <div>
+                    <p class="font-display text-lg font-bold text-slate-100">Still have a question?</p>
+                    <p class="text-sm text-slate-500">Send us a message — the network desk reads every one.</p>
+                </div>
+            </div>
+            <a href="/contact" class="btn-glow inline-flex items-center gap-2 rounded-full px-6 py-3 font-display text-sm font-bold uppercase tracking-wider text-white">
+                Contact us <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+            </a>
+        </div>
+    </section>
+
+    @await Html.PartialAsync("_Footer")
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            var box = document.getElementById('faq-search'); if (!box) return;
+            var items = Array.prototype.slice.call(document.querySelectorAll('[data-faq]'));
+            var none = document.getElementById('faq-none');
+            box.addEventListener('input', function () {
+                var q = this.value.toLowerCase().trim(), shown = 0;
+                items.forEach(function (el) {
+                    var ok = q === '' || el.textContent.toLowerCase().indexOf(q) > -1;
+                    el.hidden = !ok; if (ok) shown++;
+                    if (q !== '' && ok) el.open = true;
+                });
+                none.hidden = shown > 0;
+            });
+        })();
+    </script>
+}

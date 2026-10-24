@@ -1,0 +1,60 @@
+@* Header row + "add record" form used by every admin registry panel *@
+@model (string Resource, CrudHeadVm Head)
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h2 class="font-display text-xl font-bold text-slate-100">@Model.Head.Title</h2>
+        <p class="mt-1 text-sm text-slate-500">@Model.Head.Subtitle</p>
+    </div>
+    <button type="button" data-crud-toggle="@Model.Resource" data-add-label="@Model.Head.AddLabel" class="btn-glow flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+        <i data-lucide="plus" class="h-4 w-4" data-toggle-icon></i>
+        <span data-toggle-text>@Model.Head.AddLabel</span>
+    </button>
+</div>
+
+<form hidden data-crud-form="@Model.Resource" class="glass-strong grid gap-4 rounded-3xl p-6 sm:grid-cols-2 lg:grid-cols-3">
+    @foreach (var f in Model.Head.Fields)
+    {
+        <label class="block @(f.Wide ? "sm:col-span-2 lg:col-span-3" : "")">
+            <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">@f.Label</span>
+            @if (f.Type == "select")
+            {
+                <select name="@f.Name" required="@f.Required" data-numeric="@(f.Numeric ? "1" : null)" class="field">
+                    <option value="" disabled selected>Select…</option>
+                    @foreach (var o in f.Options ?? Array.Empty<(string Value, string Label)>())
+                    {
+                        <option value="@o.Value">@o.Label</option>
+                    }
+                </select>
+            }
+            else if (f.Type == "textarea")
+            {
+                <textarea name="@f.Name" required="@f.Required" placeholder="@f.Placeholder" rows="2" class="field resize-none"></textarea>
+            }
+            else
+            {
+                <input name="@f.Name" type="@f.Type" step="@f.Step" required="@f.Required" placeholder="@f.Placeholder" data-numeric="@((f.Numeric || f.Type == "number") ? "1" : null)" class="field" />
+            }
+        </label>
+    }
+    @if (ImageStore.Folders.ContainsKey(Model.Resource))
+    {
+        <div class="flex items-center gap-4 sm:col-span-2 lg:col-span-3">
+            <span class="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500/25 to-violet-500/25 ring-1 ring-cyan-400/30">
+                <i data-lucide="image-plus" class="h-5 w-5 text-cyan-300"></i>
+                <img id="add-img-@Model.Resource" alt="Photo preview" class="absolute inset-0 hidden h-full w-full object-cover" />
+            </span>
+            <label class="block min-w-0 flex-1">
+                <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Photo (optional)</span>
+                <input type="file" data-crud-image data-img-input data-img-preview-target="#add-img-@Model.Resource" accept="image/jpeg,image/png,image/webp,image/gif" class="field !py-2 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-400/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyan-300" />
+                <span data-img-input-error class="mt-1 block text-xs text-rose-300"></span>
+            </label>
+        </div>
+    }
+    <div class="flex items-end gap-3 sm:col-span-2 lg:col-span-3">
+        <button class="btn-glow flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-60">
+            <span data-icon-slot></span>
+            Save record
+        </button>
+        <p data-crud-error class="text-sm text-rose-300"></p>
+    </div>
+</form>

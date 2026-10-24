@@ -1,0 +1,66 @@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var links = new[] { ("/", "Home"), ("/plans", "Plans") };
+    var extra = new[] { ("/faq", "FAQ"), ("/contact", "Contact") };
+}
+<header id="site-header" class="hdr fixed inset-x-0 top-0 z-50">
+    <div class="mx-auto flex w-full max-w-7xl items-center justify-between px-5 lg:px-8">
+        <a href="/" class="group flex items-center gap-3">
+            <img src="~/images/brand/logo-mark.png" alt="Nexus Service Marketing logo" class="h-11 w-auto drop-shadow-[0_0_14px_rgba(56,189,248,0.55)] transition group-hover:scale-105" />
+            <span class="leading-tight">
+                <span class="block font-display text-base font-bold tracking-[0.22em] text-slate-100">NEXUS</span>
+                <span class="block text-[10px] font-medium uppercase tracking-[0.3em] text-cyan-400/80">Service Marketing</span>
+            </span>
+        </a>
+
+        <nav class="hidden items-center gap-1 lg:flex">
+            @foreach (var l in links)
+            {
+                <a href="@l.Item1" class="rounded-full px-4 py-2 text-sm font-medium transition hover:bg-indigo-500/10 hover:text-cyan-300 @(path == l.Item1 ? "text-cyan-300" : "text-slate-300")">@l.Item2</a>
+            }
+            @foreach (var l in extra)
+            {
+                <a href="@l.Item1" class="hidden rounded-full px-4 py-2 text-sm font-medium transition hover:bg-indigo-500/10 hover:text-cyan-300 xl:block @(path == l.Item1 ? "text-cyan-300" : "text-slate-300")">@l.Item2</a>
+            }
+        </nav>
+
+        <div class="hidden items-center gap-3 lg:flex">
+            @await Html.PartialAsync("_NotificationBell", "nav")
+            <a href="/track" class="flex items-center gap-2 rounded-full border border-slate-700/80 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300">
+                <i data-lucide="search" class="h-4 w-4"></i>
+                Track Status
+            </a>
+            <a href="/register" class="rounded-full px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-indigo-500/10 hover:text-cyan-300">Register</a>
+            <a href="/login" class="btn-glow flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white">
+                Sign In
+                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+            </a>
+        </div>
+
+        <div class="flex items-center gap-2 lg:hidden">
+            @await Html.PartialAsync("_NotificationBell", "nav")
+            <button type="button" id="nav-toggle" class="grid h-10 w-10 place-items-center rounded-xl border border-slate-700/70 text-slate-200" aria-label="Toggle menu">
+                <i data-lucide="menu" class="h-5 w-5" id="nav-icon-open"></i>
+                <i data-lucide="x" class="hidden h-5 w-5" id="nav-icon-close"></i>
+            </button>
+        </div>
+    </div>
+
+    <nav id="nav-mobile" hidden class="glass-strong mx-4 mt-3 overflow-hidden rounded-2xl lg:hidden">
+        <div class="flex flex-col gap-1 p-4">
+            @foreach (var l in links)
+            {
+                <a href="@l.Item1" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-indigo-500/10">@l.Item2</a>
+            }
+            @foreach (var l in extra)
+            {
+                <a href="@l.Item1" class="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 hover:bg-indigo-500/10">@l.Item2</a>
+            }
+            <div class="mt-2 flex gap-2">
+                <a href="/track" class="flex-1 rounded-xl border border-slate-600 px-4 py-3 text-center text-sm text-slate-200">Track Status</a>
+                <a href="/register" class="flex-1 rounded-xl border border-cyan-400/40 px-4 py-3 text-center text-sm font-semibold text-cyan-300">Register</a>
+                <a href="/login" class="btn-glow flex-1 rounded-xl px-4 py-3 text-center text-sm font-semibold text-white">Sign In</a>
+            </div>
+        </div>
+    </nav>
+</header>

@@ -1,0 +1,82 @@
+@using Microsoft.EntityFrameworkCore
+@inject NexusCommunication.Data.AppDbContext Db
+@{
+    Layout = "_Layout";
+    var role = ViewData["Role"] as string ?? "admin";
+    var roleLabel = ViewData["RoleLabel"] as string ?? "";
+    var scopeName = ViewData["ScopeName"] as string;
+    var userName = User.ToSession().Name;
+    // the signed-in person's own picture (customer photo or employee photo) for the sidebar avatar
+    {
+        var sess = User.ToSession();
+        ViewData["UserImage"] = sess.Role == "customer"
+            ? await Db.Customers.AsNoTracking().Where(x => x.UserId == sess.Id).Select(x => x.ImageUrl).FirstOrDefaultAsync()
+            : await Db.Employees.AsNoTracking().Where(x => x.UserId == sess.Id).Select(x => x.ImageUrl).FirstOrDefaultAsync();
+    }
+
+    var accents = new Dictionary<string, (string Text, string Ring, string Grad)>
+    {
+        ["admin"] = ("text-cyan-300", "ring-cyan-400/40", "from-cyan-500/25 to-blue-600/20"),
+        ["accounts"] = ("text-emerald-300", "ring-emerald-400/40", "from-emerald-500/25 to-teal-600/20"),
+        ["technical"] = ("text-amber-300", "ring-amber-400/40", "from-amber-500/25 to-orange-600/20"),
+        ["retail"] = ("text-violet-300", "ring-violet-400/40", "from-violet-500/25 to-fuchsia-600/20"),
+        ["customer"] = ("text-sky-300", "ring-sky-400/40", "from-sky-500/25 to-cyan-600/20"),
+    };
+    var accent = accents.TryGetValue(role, out var a) ? a : accents["admin"];
+    var accentKey = role switch { "accounts" => "emerald", "technical" => "amber", "retail" => "violet", "customer" => "sky", _ => "cyan" };
+    var navLinks = new[] { ("/", "house", "Public site") };
+}
+
+<div data-accent="@accentKey" class="min-h-screen lg:grid lg:grid-cols-[270px_1fr]">
+    <!-- mobile bar -->
+    <div class="glass-strong sticky top-0 z-40 flex items-center justify-between px-4 py-3 lg:hidden">
+        <div class="flex items-center gap-3">
+            <button type="button" data-drawer-open class="grid h-10 w-10 place-items-center rounded-xl border border-slate-700/70 text-slate-200">
+                <i data-lucide="menu" class="h-5 w-5"></i>
+            </button>
+            <img src="~/images/brand/logo-mark.png" alt="Nexus" class="h-9 w-auto" />
+            <span class="font-display text-sm font-bold tracking-[0.22em] text-slate-100">NEXUS · @roleLabel</span>
+        </div>
+        <div class="flex items-center gap-2">
+            @await Html.PartialAsync("_NotificationBell", "bar")
+            <button type="button" data-open-palette aria-label="Quick jump" class="grid h-10 w-10 place-items-center rounded-xl border border-slate-700/70 text-slate-300">
+                <i data-lucide="search" class="h-4 w-4"></i>
+            </button>
+            <form method="post" action="/logout">
+                @Html.AntiForgeryToken()
+                <button aria-label="Sign out" class="grid h-10 w-10 place-items-center rounded-xl border border-slate-700/70 text-slate-300">
+                    <i data-lucide="log-out" class="h-4 w-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- sidebar desktop -->
+    <aside class="sticky top-0 hidden h-screen overflow-y-auto border-r border-slate-800/70 bg-ink-900/60 p-5 lg:block">
+        <div class="absolute right-5 top-6 z-10">@await Html.PartialAsync("_NotificationBell", "side")</div>
+        @await Html.PartialAsync("_Sidebar", (roleLabel, userName, scopeName, accent.Text, accent.Ring, accent.Grad))
+    </aside>
+
+    <!-- sidebar mobile drawer -->
+    <div id="drawer" hidden class="fixed inset-0 z-50 lg:hidden">
+        <div data-drawer-close class="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"></div>
+        <aside class="absolute left-0 top-0 h-full w-72 overflow-y-auto border-r border-slate-800 bg-ink-900 p-5">
+            <button type="button" data-drawer-close class="absolute right-4 top-4 text-slate-400">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+            @await Html.PartialAsync("_Sidebar", (roleLabel, userName, scopeName, accent.Text, accent.Ring, accent.Grad))
+        </aside>
+    </div>
+
+    <main class="relative min-h-screen">
+        <div class="grid-bg pointer-events-none absolute inset-0 opacity-40"></div>
+        <div class="pointer-events-none absolute -top-24 left-1/3 h-64 w-[36rem] rounded-full bg-gradient-to-br opacity-20 blur-[110px] @accent.Grad"></div>
+        <div class="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+            @RenderBody()
+        </div>
+    </main>
+</div>
+
+@section Scripts {
+    @await RenderSectionAsync("Scripts", required: false)
+}

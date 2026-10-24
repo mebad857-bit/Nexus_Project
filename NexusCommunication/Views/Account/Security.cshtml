@@ -1,0 +1,96 @@
+@model AccountVm
+@{
+    var roleLabels = new Dictionary<string, string>
+    {
+        ["admin"] = "Admin Desk", ["accounts"] = "Accounts Desk", ["technical"] = "Technical Desk", ["retail"] = "Retail Outlet Desk", ["customer"] = "Customer Portal",
+    };
+    ViewData["Title"] = "Security — Nexus";
+    ViewData["Role"] = Model.Role;
+    ViewData["RoleLabel"] = roleLabels.TryGetValue(Model.Role, out var rl) ? rl : "Account";
+    ViewData["ScopeName"] = Model.Scope;
+    Layout = "_DashboardLayout";
+    var home = Fmt.RoleHome(Model.Role);
+}
+
+<div class="mx-auto max-w-4xl">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold tracking-tight text-slate-100">Security</h1>
+            <p class="mt-1.5 text-sm text-slate-500">Change your password for <span class="font-mono text-slate-300">@Model.Username</span>.</p>
+        </div>
+        <a href="@home" class="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i> Back to my console
+        </a>
+    </div>
+
+    @await Html.PartialAsync("_AccountTabs", "security")
+
+    <div class="grid gap-6 lg:grid-cols-5">
+        <div class="glass-strong rounded-3xl p-7 lg:col-span-3">
+            <h2 class="flex items-center gap-2 font-display text-lg font-bold text-slate-100"><i data-lucide="key-round" class="h-5 w-5 text-cyan-300"></i> Change password</h2>
+            <p class="mt-1 text-sm text-slate-500">Enter your current password, then choose a new one. You stay signed in on this device.</p>
+
+            <form id="pw-form" class="mt-6 space-y-4" novalidate>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Current password</span>
+                    <span class="relative block">
+                        <input id="pw-cur" type="password" autocomplete="current-password" required class="field pr-11" />
+                        <button type="button" data-toggle-pass="pw-cur" aria-label="Show password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                    </span>
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">New password</span>
+                    <span class="relative block">
+                        <input id="pw-new" type="password" autocomplete="new-password" required minlength="6" maxlength="100" class="field pr-11" />
+                        <button type="button" data-toggle-pass="pw-new" aria-label="Show password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200"><i data-lucide="eye" class="h-4 w-4"></i></button>
+                    </span>
+                    @await Html.PartialAsync("_PasswordMeter", "pw-new")
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Repeat new password</span>
+                    <input id="pw-rep" type="password" autocomplete="new-password" required class="field" />
+                    <span data-pw-match-for="pw-rep" data-pw-with="pw-new" class="mt-1.5 block text-xs font-semibold" aria-live="polite"></span>
+                </label>
+                <p id="pw-err" class="text-sm text-rose-300" role="alert"></p>
+                <button id="pw-btn" class="btn-glow flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-60">
+                    <span data-icon-slot><i data-lucide="shield-check" class="h-4 w-4"></i></span> Update password
+                </button>
+            </form>
+        </div>
+
+        <div class="glass-strong rounded-3xl p-7 lg:col-span-2">
+            <h2 class="flex items-center gap-2 font-display text-lg font-bold text-slate-100"><i data-lucide="lightbulb" class="h-5 w-5 text-cyan-300"></i> A good password</h2>
+            <ul class="mt-4 space-y-3 text-sm text-slate-400">
+                <li class="flex items-start gap-3"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Ten or more characters is better than six.</li>
+                <li class="flex items-start gap-3"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Mix upper and lower case, numbers and a symbol.</li>
+                <li class="flex items-start gap-3"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Do not reuse your username or a password from another site.</li>
+                <li class="flex items-start gap-3"><i data-lucide="check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Never share it — Nexus staff will never ask for it.</li>
+            </ul>
+            <p class="mt-6 border-t border-slate-800 pt-4 text-xs leading-relaxed text-slate-500">Forgot your current password? Sign out and use <span class="font-semibold text-slate-300">Forgot password?</span> on the sign-in page.</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/password-meter.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            var $ = function (id) { return document.getElementById(id); };
+            $('pw-form').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var err = $('pw-err'); err.textContent = '';
+                if (!$('pw-cur').value) { err.textContent = 'Enter your current password.'; return; }
+                if ($('pw-new').value.length < 6) { err.textContent = 'The new password must be at least 6 characters.'; return; }
+                if ($('pw-new').value === $('pw-cur').value) { err.textContent = 'Choose a password different from the current one.'; return; }
+                if ($('pw-new').value !== $('pw-rep').value) { err.textContent = 'The new passwords do not match.'; return; }
+                nx.busy($('pw-btn'), true);
+                var res = await nx.api('/api/account/password', { method: 'POST', body: { currentPassword: $('pw-cur').value, newPassword: $('pw-new').value } });
+                nx.busy($('pw-btn'), false);
+                if (!res.ok) { err.textContent = nx.errText(res, 'Could not update the password'); return; }
+                $('pw-form').reset();
+                $('pw-new').dispatchEvent(new Event('input')); $('pw-rep').dispatchEvent(new Event('input'));
+                nx.toast('Password updated successfully', 'success');
+            });
+        })();
+    </script>
+}

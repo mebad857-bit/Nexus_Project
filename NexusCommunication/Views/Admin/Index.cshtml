@@ -1,0 +1,810 @@
+@model AdminVm
+@{
+    ViewData["Title"] = "Administration Console — Nexus";
+    ViewData["Role"] = "admin";
+    ViewData["RoleLabel"] = "Admin Desk";
+    ViewData["ScopeName"] = "Head Office · Meridian Central";
+    Layout = "_DashboardLayout";
+
+    var lowStock = Model.Equipment.Where(e => e.Stock <= e.ReorderLevel).ToList();
+    var tabs = new (string, string, string)[]
+    {
+        ("overview", "Overview", "layout-dashboard"), ("customers", "Customers", "contact"), ("orders", "Orders", "clipboard-list"),
+        ("connections", "Connections", "signal"), ("billing", "Billing & Payments", "receipt"), ("employees", "Employees", "users"),
+        ("vendors", "Vendors", "building-2"), ("equipment", "Equipment & Stock", "package"), ("procurement", "Procurement", "truck"),
+        ("shops", "Retail Shops", "store"), ("plans", "Plans & Charges", "scroll-text"), ("feedback", "Feedback", "message-square-heart"),
+        ("tickets", "Complaints", "ticket"), ("messages", "Messages", "mail"), ("faqs", "FAQs", "book-open"), ("activity", "Activity Log", "history"),
+    };
+    ViewData["NavTabs"] = tabs;
+    string J(object o) => System.Text.Json.JsonSerializer.Serialize(o);
+    var customerHead = new CrudHeadVm("Customers", "Everyone who holds an account or has ever applied — searchable and editable.", "Add customer", new FieldDef[]
+    {
+        new("name", "Full name", Required: true), new("phone", "Phone", Required: true),
+        new("email", "E-mail"), new("altPhone", "Alternate phone"),
+        new("city", "City", "select", true, Options: Fmt.Cities.Select(c => (c.Name, $"{c.Name} ({c.Code})")).ToArray()),
+        new("idProof", "ID / address proof", Placeholder: "e.g. National ID · MC-123456"),
+        new("address", "Address", Required: true, Wide: true),
+    });
+
+    var employeeHead = new CrudHeadVm("Employees", "Every login on the network — admin, accounts, technical and retail staff.", "Onboard employee", new FieldDef[]
+    {
+        new("name", "Full name", Required: true, Placeholder: "e.g. Asha Menon"),
+        new("department", "Department", "select", true, Options: new[] { ("admin", "Administration"), ("accounts", "Accounts"), ("technical", "Technical"), ("retail", "Retail outlet") }),
+        new("designation", "Designation", Required: true, Placeholder: "e.g. Retail Executive"),
+        new("shopId", "Outlet (retail staff)", "select", Numeric: true, Options: Model.Shops.Select(s => (s.Id.ToString(), $"{s.Code} — {s.Name}")).ToArray()),
+        new("email", "Email", Required: true, Placeholder: "name@nexuscomm.com"),
+        new("phone", "Phone", Required: true, Placeholder: "+1 555 …"),
+        new("username", "Login username", Required: true, Placeholder: "login id"),
+        new("password", "Login password", "password", true, Placeholder: "min 6 characters"),
+    });
+    var vendorHead = new CrudHeadVm("Product Vendors", "Manufacturers who supply modems, routers, telephones and cabling.", "Add vendor", new FieldDef[]
+    {
+        new("name", "Vendor name", Required: true), new("contactPerson", "Contact person", Required: true),
+        new("email", "Email", Required: true), new("phone", "Phone", Required: true),
+        new("address", "Address", Required: true, Wide: true),
+        new("products", "Products supplied", Required: true, Wide: true, Placeholder: "e.g. ADSL modems, Wi-Fi routers"),
+    });
+    var equipmentHead = new CrudHeadVm("Equipment & Stock", "Modems, routers, telephones and cabling issued at installation time.", "Add equipment", new FieldDef[]
+    {
+        new("name", "Product name", Required: true),
+        new("type", "Type", "select", true, Options: new[] { ("modem", "Modem"), ("router", "Router / ONT"), ("telephone", "Telephone"), ("cabling", "Cabling") }),
+        new("vendorId", "Vendor", "select", true, Numeric: true, Options: Model.Vendors.Select(v => (v.Id.ToString(), v.Name)).ToArray()),
+        new("unitPrice", "Unit price ($)", "number", true, Step: "0.01"),
+        new("stock", "Opening stock", "number", true),
+        new("reorderLevel", "Reorder level", "number", true),
+    });
+    var shopHead = new CrudHeadVm("Retail Outlets", "Customer-facing counters where orders are placed and payments are collected.", "Open outlet", new FieldDef[]
+    {
+        new("code", "Outlet code", Required: true, Placeholder: "NX-105"), new("name", "Outlet name", Required: true),
+        new("city", "City", Required: true), new("phone", "Phone", Required: true),
+        new("address", "Address", Required: true, Wide: true), new("manager", "Manager", Placeholder: "Optional"),
+    });
+    var faqHead = new CrudHeadVm("FAQs", "Questions shown on the public FAQ page — add, reorder, edit or hide any of them. Changes appear on the site instantly.", "Add question", new FieldDef[]
+    {
+        new("question", "Question", Required: true, Wide: true, Placeholder: "e.g. How do I track my order?"),
+        new("answer", "Answer", "textarea", true, Wide: true),
+        new("sortOrder", "Display order", "number", false, Placeholder: "10, 20, 30… lower numbers show first"),
+    });
+    var planHead = new CrudHeadVm("Plans & Charges", "The tariff sheet — insert, update, retire or republish any plan. Changes reflect instantly on the public site.", "New plan", new FieldDef[]
+    {
+        new("connectionType", "Connection type", "select", true, Options: new[] { ("dialup", "Dial-Up"), ("broadband", "Broadband"), ("landline", "Landline") }),
+        new("category", "Category", Required: true, Placeholder: "e.g. Unlimited 64Kbps"),
+        new("name", "Plan name", Required: true, Placeholder: "e.g. Monthly Unlimited"),
+        new("speed", "Speed", Placeholder: "e.g. 64 Kbps (optional)"),
+        new("price", "Charge ($)", "number", true, Step: "0.01"),
+        new("deposit", "Security deposit ($)", "number", true, Step: "0.01"),
+        new("validityLabel", "Validity label", Required: true, Placeholder: "e.g. 3 Months"),
+        new("validityMonths", "Validity (months)", "number", true),
+        new("callRates", "Call rate card", Placeholder: "Voice plans only", Wide: true),
+        new("description", "Description", "textarea", true, Wide: true),
+    });
+}
+
+@{
+    const string Th = "px-5 py-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500";
+    const string DelBtn = "grid h-8 w-8 place-items-center rounded-lg border border-slate-700/70 text-slate-400 transition hover:border-rose-400/50 hover:text-rose-300";
+    const string ActBtn = "rounded-lg border border-slate-700/70 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300";
+}
+
+<div>
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold tracking-tight text-slate-100">Administration Console</h1>
+            <p class="mt-1.5 text-sm text-slate-500">Employees, vendors, stock, outlets and tariff — the whole registry at your fingertips.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="glass hidden items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-slate-400 sm:flex">
+                <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+                Registry live
+            </div>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_TabBar", new TabBarVm("cyan", tabs))
+
+    <!-- ------------------------------ overview ------------------------------ -->
+    <section data-panel="overview" hidden>
+        @await Html.PartialAsync("_DeskHero", ("admin", "Network command centre", "Equipment & stock rooms", "Retail outlet network"))
+
+        <div class="space-y-8">
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                @Ui.StatCard("signal", "Live connections", Fmt.Num(Model.LiveConnections), "Across the territory", "cyan")
+                @Ui.StatCard("scroll-text", "Orders on record", Fmt.Num(Model.OrdersCount), $"{Model.PendingOrders} awaiting feasibility", "violet")
+                @Ui.StatCard("wallet", "Collected revenue", Fmt.Money(Model.Collected), "All recorded payments", "emerald")
+                @Ui.StatCard("coins", "Outstanding dues", Fmt.Money(Model.Outstanding), "Open + partial invoices", "rose")
+            </div>
+
+            <div class="grid gap-6 lg:grid-cols-3">
+                <div class="glass rounded-3xl p-6 lg:col-span-2">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Revenue · last 6 months</h3>
+                        <div class="flex gap-4 text-xs text-slate-400"><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-full bg-cyan-400"></i>Invoiced</span><span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-full bg-emerald-400"></i>Collected</span></div>
+                    </div>
+                    <div class="mt-4" data-cjs="revenue" data-source="monthly-data"></div>
+                </div>
+                <div class="glass rounded-3xl p-6">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Orders by status</h3>
+                    <div class="mt-4" data-cjs="status" data-source="order-status-data"></div>
+                </div>
+            </div>
+            <script type="application/json" id="monthly-data">@Html.Raw(J(Model.Monthly.Select(m => new { label = m.Label, a = m.Invoiced, b = m.Collected })))</script>
+            <script type="application/json" id="order-status-data">@Html.Raw(J(Model.OrderStatusCounts))</script>
+
+            <div class="glass rounded-3xl p-6">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Connections by plan</h3>
+                    <div class="flex gap-4 text-xs text-slate-400">
+                        <span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-full" style="background:#fbbf24"></i>Dial-Up</span>
+                        <span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-full" style="background:#3b82f6"></i>Broadband</span>
+                        <span class="flex items-center gap-1.5"><i class="h-2.5 w-2.5 rounded-full" style="background:#8b5cf6"></i>Landline</span>
+                    </div>
+                </div>
+                <div class="mt-4" data-cjs="plans" data-source="plan-conn-data"></div>
+            </div>
+            <script type="application/json" id="plan-conn-data">@Html.Raw(J(Model.PlanConnections.Select(p => new { name = p.Name, category = p.Category, type = p.Type, count = p.Count })))</script>
+
+            <div class="grid gap-6 lg:grid-cols-3">
+                <div class="glass overflow-hidden rounded-3xl lg:col-span-2">
+                    <div class="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Latest orders</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[560px] text-sm">
+                            <tbody>
+                                @foreach (var o in Model.RecentOrders)
+                                {
+                                    <tr class="table-row">
+                                        <td class="px-6 py-3.5 font-mono text-xs tracking-wider text-cyan-300">@o.OrderNo</td>
+                                        <td class="px-3 py-3.5">
+                                            <p class="font-semibold text-slate-200">@o.Customer.Name</p>
+                                            <p class="text-xs text-slate-500">@o.Plan?.Category · @o.Plan?.Name</p>
+                                        </td>
+                                        <td class="px-3 py-3.5">@Ui.TypeChip(o.ConnectionType)</td>
+                                        <td class="px-3 py-3.5 text-xs text-slate-500">@Fmt.Date(o.CreatedAt)</td>
+                                        <td class="px-6 py-3.5 text-right">@Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="glass rounded-3xl p-6">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Inventory pulse</h3>
+                        <p class="mt-4 font-display text-3xl font-bold text-slate-100">@Fmt.Num(Model.StockUnits)</p>
+                        <p class="text-xs text-slate-500">units across @Model.Equipment.Count product lines</p>
+                        <div class="mt-5 space-y-3">
+                            @if (lowStock.Count == 0)
+                            {
+                                <p class="text-sm text-emerald-300">All stock levels healthy.</p>
+                            }
+                            @foreach (var e in lowStock)
+                            {
+                                <div class="flex items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/5 px-3.5 py-2.5">
+                                    <i data-lucide="circle-alert" class="h-4 w-4 shrink-0 text-amber-300"></i>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-amber-200">@e.Name</p>
+                                        <p class="text-xs text-amber-200/60">@e.Stock left · reorder at @e.ReorderLevel</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="glass rounded-3xl p-6">
+                        <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Organisation</h3>
+                        <div class="mt-4 grid grid-cols-2 gap-3 text-center">
+                            <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-4">
+                                <p class="font-display text-2xl font-bold text-cyan-300">@Model.Employees.Count</p>
+                                <p class="text-[11px] uppercase tracking-wider text-slate-500">Employees</p>
+                            </div>
+                            <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-4">
+                                <p class="font-display text-2xl font-bold text-violet-300">@Model.Plans.Count</p>
+                                <p class="text-[11px] uppercase tracking-wider text-slate-500">Active tariffs</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- ------------------------------ customers ------------------------------ -->
+    <section data-panel="customers" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "customers", "Customer base", "Every account holder, one searchable list"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("customers", customerHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="10" data-search-placeholder="Search name, phone, city…" data-export="customers"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Customer", "Contact", "City", "ID proof", "Joined" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Customers.Count == 0) { <tr><td colspan="6" class="px-5 py-8">@Ui.Empty("No customers yet", "Customers appear here once an order is placed or they register.")</td></tr> }
+                        @foreach (var r in Model.Customers)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(r.ImageUrl, r.Name, Fmt.Initials(r.Name))<div><p class="font-semibold text-slate-200">@r.Name</p><p class="text-xs text-slate-500">@(r.UserId != null ? "Has portal login" : "Counter customer")</p></div></div></td>
+                                <td class="px-5 py-3.5"><p class="text-slate-300">@r.Phone</p><p class="text-xs text-slate-500">@r.Email</p></td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.City <span class="text-xs text-slate-600">(@r.CityCode)</span></td>
+                                <td class="px-5 py-3.5 text-xs text-slate-500">@(r.IdProof ?? "—")</td>
+                                <td class="px-5 py-3.5 text-xs text-slate-500" data-v="@r.CreatedAt.ToString("yyyy-MM-dd")">@Fmt.Date(r.CreatedAt)</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="customers" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-crud-delete="customers" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ orders ------------------------------ -->
+    <section data-panel="orders" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "orders", "Order pipeline", "From application to activation"))
+
+        <div class="space-y-5">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">All orders</h2>
+                <p class="mt-1 text-sm text-slate-500">Every application across all outlets and the online portal. Feasibility decisions are made by the technical desk.</p>
+            </div>
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="10" data-search-placeholder="Search order id, customer, plan…" data-export="orders"><div class="overflow-x-auto">
+                <table class="w-full min-w-[820px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Order", "Customer", "Plan", "Lines", "Source", "Placed", "Status" }) { <th data-sort class="@Th">@h</th> }
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.AllOrders.Count == 0) { <tr><td colspan="7" class="px-5 py-8">@Ui.Empty("No orders yet")</td></tr> }
+                        @foreach (var o in Model.AllOrders)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><button type="button" data-copy="@o.OrderNo" title="Copy order id" class="font-mono text-xs tracking-wider text-cyan-300 hover:underline">@o.OrderNo</button></td>
+                                <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@o.Customer.Name</p><p class="text-xs text-slate-500">@o.Customer.Phone</p></td>
+                                <td class="px-5 py-3.5"><div class="mb-1">@Ui.TypeChip(o.ConnectionType)</div><p class="text-xs text-slate-500">@o.Plan?.Category · @o.Plan?.Name</p></td>
+                                <td class="px-5 py-3.5 text-slate-300">@o.Quantity@(o.DiscountPct > 0 ? $" · {o.DiscountPct}% off" : "")</td>
+                                <td class="px-5 py-3.5 text-xs text-slate-400">@(o.Shop?.Name ?? "Online")</td>
+                                <td class="px-5 py-3.5 text-xs text-slate-500" data-v="@o.CreatedAt.ToString("yyyy-MM-dd")">@Fmt.Date(o.CreatedAt)</td>
+                                <td class="px-5 py-3.5">@Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ connections ------------------------------ -->
+    <section data-panel="connections" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "connections", "Live connections", "Dial-up, broadband and landline lines in service"))
+
+        <div class="space-y-5">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Connections</h2>
+                <p class="mt-1 text-sm text-slate-500">All provisioned accounts with their 16-digit account id, plan and status.</p>
+            </div>
+            <div class="grid gap-6 lg:grid-cols-4">
+                <div class="glass rounded-3xl p-6 lg:col-span-1">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">By type</h3>
+                    <div class="mt-4" data-chart="donut" data-source="conn-type-data" data-center="lines"></div>
+                    <script type="application/json" id="conn-type-data">@Html.Raw(J(Model.ConnTypeCounts))</script>
+                </div>
+                <div class="glass overflow-hidden rounded-3xl lg:col-span-3" data-table data-page-size="8" data-search-placeholder="Search account id, customer, city…" data-export="connections"><div class="overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-sm">
+                        <thead><tr class="border-b border-slate-800 text-left">
+                            @foreach (var h in new[] { "Account id", "Customer", "Plan", "City", "Status" }) { <th data-sort class="@Th">@h</th> }
+                        </tr></thead>
+                        <tbody>
+                            @if (Model.AllConnections.Count == 0) { <tr><td colspan="5" class="px-5 py-8">@Ui.Empty("No connections yet")</td></tr> }
+                            @foreach (var c in Model.AllConnections)
+                            {
+                                <tr class="table-row">
+                                    <td class="px-5 py-3.5"><button type="button" data-copy="@c.AccountId" class="font-mono text-xs tracking-wider text-cyan-300 hover:underline">@c.AccountId</button></td>
+                                    <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@c.Customer.Name</p><p class="text-xs text-slate-500">@c.Customer.Phone</p></td>
+                                    <td class="px-5 py-3.5"><div class="mb-1">@Ui.TypeChip(c.ConnectionType)</div><p class="text-xs text-slate-500">@c.Plan?.Category · @c.Plan?.Name</p></td>
+                                    <td class="px-5 py-3.5 text-slate-400">@c.City</td>
+                                    <td class="px-5 py-3.5">@Ui.Pill(c.Status, Fmt.ConnStatus(c.Status))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ billing ------------------------------ -->
+    <section data-panel="billing" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "billing", "Billing & payments", "Invoices, receipts and collections"))
+
+        <div class="space-y-6">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-100">Billing &amp; payments</h2>
+                    <p class="mt-1 text-sm text-slate-500">Read-only audit view. Invoices are issued by the accounts desk; payments are taken at retail counters or the accounts office.</p>
+                </div>
+                <div data-export-slot="payments" data-export-label="Receipts"></div>
+            </div>
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8" data-search-placeholder="Search invoice, account, customer…" data-export="bills" data-export-filter="#admin-bill-filter">
+                <div data-tt-extra><select id="admin-bill-filter" class="field !w-auto !py-2 text-xs"><option value="all">All statuses</option><option value="pending">Unpaid</option><option value="partial">Partially paid</option><option value="paid">Paid</option></select></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[820px] text-sm">
+                        <thead><tr class="border-b border-slate-800 text-left">
+                            @foreach (var h in new[] { "Invoice", "Customer", "Period", "Total", "Paid", "Due", "Status" }) { <th data-sort class="@Th">@h</th> }
+                            <th class="@Th text-right">View</th>
+                        </tr></thead>
+                        <tbody>
+                            @if (Model.AllBills.Count == 0) { <tr><td colspan="8" class="px-5 py-8">@Ui.Empty("No invoices generated yet")</td></tr> }
+                            @foreach (var b in Model.AllBills)
+                            {
+                                <tr class="table-row" data-status="@b.Status" data-admin-bill>
+                                    <td class="px-5 py-3.5 font-mono text-xs text-cyan-300">@b.BillNo</td>
+                                    <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@b.Connection.Customer.Name</p><p class="font-mono text-[11px] text-slate-500">@b.Connection.AccountId</p></td>
+                                    <td class="px-5 py-3.5 text-slate-400">@b.Period</td>
+                                    <td class="px-5 py-3.5 text-slate-200">@Fmt.Money(b.Total)</td>
+                                    <td class="px-5 py-3.5 text-emerald-300">@Fmt.Money(b.PaidAmount)</td>
+                                    <td class="px-5 py-3.5 font-semibold @(b.DueAmount > 0 ? "text-rose-300" : "text-slate-500")">@Fmt.Money(b.DueAmount)</td>
+                                    <td class="px-5 py-3.5">@Ui.Pill(b.Status, Fmt.BillStatus(b.Status))</td>
+                                    <td class="px-5 py-3.5 text-right"><a href="/invoice/@b.Id" target="_blank" class="@ActBtn inline-block">Open</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ procurement ------------------------------ -->
+    <section data-panel="procurement" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "procurement", "Procurement", "Purchase orders and incoming stock"))
+
+        <div class="space-y-6">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Procurement planning</h2>
+                <p class="mt-1 text-sm text-slate-500">Compare live stock with the connections still waiting for hardware, then re-order from the right vendor.</p>
+            </div>
+            @{
+                var modemStock = Model.Equipment.Where(e => e.Type is "modem" or "router").Sum(e => e.Stock);
+                var phoneStock = Model.Equipment.Where(e => e.Type is "telephone" or "cabling").Sum(e => e.Stock);
+            }
+            <div class="grid gap-4 sm:grid-cols-2">
+                @Ui.StatCard("wifi", "Modems / routers needed", Fmt.Num(Model.OpenDemandModems), $"{Fmt.Num(modemStock)} in stock", Model.OpenDemandModems > modemStock ? "rose" : "emerald")
+                @Ui.StatCard("phone", "Phones / cabling needed", Fmt.Num(Model.OpenDemandPhones), $"{Fmt.Num(phoneStock)} in stock", Model.OpenDemandPhones > phoneStock ? "rose" : "emerald")
+            </div>
+            <div class="glass overflow-hidden rounded-3xl">
+                <div class="border-b border-slate-800 px-6 py-4"><h3 class="font-display text-sm font-bold uppercase tracking-[0.18em] text-slate-300">Reorder suggestions</h3></div>
+                <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">@foreach (var h in new[] { "Product", "Vendor", "In stock", "Reorder at", "Shortfall" }) { <th class="@Th">@h</th> }<th class="@Th text-right">Action</th></tr></thead>
+                    <tbody>
+                        @{ var low = Model.Equipment.Where(e => e.Stock <= e.ReorderLevel).OrderBy(e => e.Stock - e.ReorderLevel).ToList(); }
+                        @if (low.Count == 0) { <tr><td colspan="6" class="px-5 py-8 text-center text-sm text-emerald-300">Every product is above its reorder level.</td></tr> }
+                        @foreach (var e in low)
+                        {
+                            var vendor = Model.Vendors.FirstOrDefault(v => v.Id == e.VendorId);
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@e.Name</p><p class="text-xs capitalize text-slate-500">@e.Type</p></td>
+                                <td class="px-5 py-3.5 text-slate-400">@(vendor?.Name ?? "—")<p class="text-xs text-slate-600">@vendor?.Phone</p></td>
+                                <td class="px-5 py-3.5 font-bold text-amber-300">@e.Stock</td>
+                                <td class="px-5 py-3.5 text-slate-400">@e.ReorderLevel</td>
+                                <td class="px-5 py-3.5 text-rose-300">@(Math.Max(0, e.ReorderLevel * 2 - e.Stock)) units to restore a 2× buffer</td>
+                                <td class="px-5 py-3.5 text-right"><button type="button" data-add-stock="@e.Id" data-name="@e.Name" class="@ActBtn">Receive stock</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ feedback ------------------------------ -->
+    <section data-panel="feedback" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "feedback", "Customer feedback", "What subscribers say about the service"))
+
+        <div class="space-y-6">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-100">Customer feedback</h2>
+                    <p class="mt-1 text-sm text-slate-500">Collected from the public contact form.</p>
+                </div>
+                <div class="glass flex items-center gap-3 rounded-2xl px-5 py-3">
+                    <i data-lucide="star" class="h-5 w-5 fill-amber-300 text-amber-300"></i>
+                    <span class="font-display text-2xl font-bold text-slate-100">@Model.AvgRating.ToString("0.0")</span>
+                    <span class="text-xs text-slate-500">average of @Model.Feedbacks.Count responses</span>
+                </div>
+            </div>
+            @if (Model.Feedbacks.Count == 0)
+            {
+                @Ui.Empty("No feedback yet", "Responses from the website contact form will appear here.")
+            }
+            else
+            {
+                <div class="grid gap-4 md:grid-cols-2">
+                    @foreach (var f in Model.Feedbacks)
+                    {
+                        <div class="glass card-hover rounded-3xl p-6">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-xl bg-violet-400/10 text-xs font-bold text-violet-300">@Fmt.Initials(f.Name)</span><div><p class="font-semibold text-slate-200">@f.Name</p><p class="text-xs text-slate-500">@f.Contact</p></div></div>
+                                <span class="flex gap-0.5 text-amber-300" title="@f.Rating of 5">@for (var i = 1; i <= 5; i++) { <i data-lucide="star" class="h-3.5 w-3.5 @(i <= f.Rating ? "fill-amber-300" : "text-slate-700")"></i> }</span>
+                            </div>
+                            <p class="mt-4 text-sm leading-relaxed text-slate-300">@f.Message</p>
+                            <div class="mt-4 flex items-center justify-between text-xs text-slate-500">
+                                <span>@(f.ConnectionType != null ? Fmt.TypeLabel(f.ConnectionType) : "General") · @Fmt.Date(f.CreatedAt)</span>
+                                <button type="button" data-crud-delete="feedback" data-id="@f.Id" class="text-slate-500 transition hover:text-rose-300">Delete</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- ------------------------------ employees ------------------------------ -->
+    <section data-panel="employees" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "employees", "Our people", "Staff across admin, accounts, technical and retail"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("employees", employeeHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Code", "Employee", "Desk", "Outlet", "Contact", "Status" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Employees.Count == 0)
+                        {
+                            <tr><td colspan="7" class="px-5 py-8">@Ui.Empty("No employees yet", "Use “Onboard employee” to create the first record.")</td></tr>
+                        }
+                        @foreach (var r in Model.Employees)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><span class="font-mono text-xs text-cyan-300">@r.EmpCode</span></td>
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(r.ImageUrl, r.Name, Fmt.Initials(r.Name), "h-10 w-10", "rounded-full")<div><p class="font-semibold text-slate-200">@r.Name</p><p class="text-xs text-slate-500">@r.Designation</p></div></div></td>
+                                <td class="px-5 py-3.5"><span class="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-300">@r.Department</span></td>
+                                <td class="px-5 py-3.5"><span class="text-slate-400">@(r.Shop?.Name ?? "Head office")</span></td>
+                                <td class="px-5 py-3.5"><div class="text-xs"><p class="text-slate-300">@r.Phone</p><p class="text-slate-500">@r.Email</p></div></td>
+                                <td class="px-5 py-3.5">@Ui.Pill(r.Status)</td>
+                                <td class="px-5 py-3.5">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button type="button" data-edit="employees" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                        <button type="button" data-crud-patch="employees" data-id="@r.Id" data-body='{"status":"@(r.Status == "active" ? "inactive" : "active")"}' class="@ActBtn">@(r.Status == "active" ? "Suspend" : "Reactivate")</button>
+                                        <button type="button" data-crud-delete="employees" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ vendors ------------------------------ -->
+    <section data-panel="vendors" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "vendors", "Vendor partners", "Suppliers behind the network equipment"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("vendors", vendorHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Vendor", "Contact person", "Phone", "Email", "Address" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Vendors.Count == 0)
+                        {
+                            <tr><td colspan="6" class="px-5 py-8">@Ui.Empty("No product vendors yet", "Use “Add vendor” to create the first record.")</td></tr>
+                        }
+                        @foreach (var r in Model.Vendors)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(r.ImageUrl, r.Name, Fmt.Initials(r.Name), "h-10 w-10", "rounded-xl", "bg-violet-400/10 text-violet-300")<div><p class="font-semibold text-slate-200">@r.Name</p><p class="text-xs text-slate-500">@r.Products</p></div></div></td>
+                                <td class="px-5 py-3.5">@r.ContactPerson</td>
+                                <td class="px-5 py-3.5">@r.Phone</td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.Email</td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.Address</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="vendors" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-crud-delete="vendors" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ equipment ------------------------------ -->
+    <section data-panel="equipment" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "equipment", "Equipment & stock", "Modems, routers, phones and cabling"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("equipment", equipmentHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Product", "Vendor", "Unit price", "Stock", "Reorder at" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Equipment.Count == 0)
+                        {
+                            <tr><td colspan="6" class="px-5 py-8">@Ui.Empty("No equipment & stock yet", "Use “Add equipment” to create the first record.")</td></tr>
+                        }
+                        @foreach (var r in Model.Equipment)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(r.ImageUrl, r.Name, Fmt.Initials(r.Name), "h-12 w-12", "rounded-xl", "bg-amber-400/10 text-amber-300")<div><p class="font-semibold text-slate-200">@r.Name</p><p class="text-xs capitalize text-slate-500">@r.Type</p></div></div></td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.Vendor?.Name</td>
+                                <td class="px-5 py-3.5"><span class="text-slate-200">@Fmt.Money(r.UnitPrice)</span></td>
+                                <td class="px-5 py-3.5"><span class="font-display text-base font-bold @(r.Stock <= r.ReorderLevel ? "text-amber-300" : "text-emerald-300")">@r.Stock</span></td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.ReorderLevel</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="equipment" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-add-stock="@r.Id" data-name="@r.Name" class="@ActBtn">+ Stock</button>
+                                    <button type="button" data-crud-delete="equipment" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ shops ------------------------------ -->
+    <section data-panel="shops" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "shops", "Retail outlets", "Counters across the territory"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("shops", shopHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Code", "Outlet", "City", "Phone", "Manager" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Shops.Count == 0)
+                        {
+                            <tr><td colspan="6" class="px-5 py-8">@Ui.Empty("No retail outlets yet", "Use “Open outlet” to create the first record.")</td></tr>
+                        }
+                        @foreach (var r in Model.Shops)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5"><span class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 font-mono text-[11px] font-bold text-cyan-300">@r.Code</span></td>
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(Ui.ShopImage(r.ImageUrl), r.Name, Fmt.Initials(r.Name), "h-12 w-12", "rounded-xl")<div><p class="font-semibold text-slate-200">@r.Name</p><p class="text-xs text-slate-500">@r.Address</p></div></div></td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.City</td>
+                                <td class="px-5 py-3.5 text-slate-400">@r.Phone</td>
+                                <td class="px-5 py-3.5 text-slate-400">@(r.Manager ?? "—")</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="shops" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-crud-delete="shops" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ plans ------------------------------ -->
+    <section data-panel="plans" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "plans", "Plans & charges", "Tariffs for every connection type"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("plans", planHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Type", "Plan", "Charge", "Deposit", "Published" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Plans.Count == 0)
+                        {
+                            <tr><td colspan="6" class="px-5 py-8">@Ui.Empty("No plans & charges yet", "Use “New plan” to create the first record.")</td></tr>
+                        }
+                        @foreach (var r in Model.Plans)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5">@Ui.TypeChip(r.ConnectionType)</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center gap-3">@Ui.Thumb(Ui.PlanImage(r.ImageUrl, r.ConnectionType, r.Category, r.Name), r.Name, Fmt.Initials(r.Name), "h-12 w-12", "rounded-xl")<div><p class="font-semibold text-slate-200">@r.Category · @r.Name</p><p class="text-xs text-slate-500">@(r.Speed ?? "Voice rental") · @r.ValidityLabel</p></div></div></td>
+                                <td class="px-5 py-3.5"><span class="font-display font-bold text-slate-100">@Fmt.Money(r.Price)</span></td>
+                                <td class="px-5 py-3.5 text-slate-400">@Fmt.Money(r.Deposit)</td>
+                                <td class="px-5 py-3.5">@Ui.Pill(r.Active ? "active" : "inactive", r.Active ? "Live" : "Hidden")</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="plans" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-crud-patch="plans" data-id="@r.Id" data-body='{"active":@(r.Active ? "false" : "true")}' class="@ActBtn">@(r.Active ? "Unpublish" : "Publish")</button>
+                                    <button type="button" data-crud-delete="plans" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ complaint tickets ------------------------------ -->
+    <section data-panel="tickets" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "tickets", "Complaint tickets", "Assign customer complaints to the technical desk and follow them to resolution"))
+        <div class="space-y-6">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Complaints</h2>
+                <p class="mt-1 text-sm text-slate-500">Open → Assigned → In progress → Resolved → Closed. Assign new complaints to a technical-desk employee, reply to customers and close finished tickets.</p>
+            </div>
+            @await Html.PartialAsync("_TicketsPanel", "admin")
+        </div>
+    </section>
+
+    <!-- ------------------------------ messages ------------------------------ -->
+    <section data-panel="messages" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "messages", "Contact inbox", "Messages sent through the website contact form"))
+        <span id="messages-unread" data-count="@Model.UnreadMessages" hidden></span>
+
+        <div class="space-y-6">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h2 class="font-display text-xl font-bold text-slate-100">Messages</h2>
+                    <p class="mt-1 text-sm text-slate-500">Sent from the public Contact us page. Unread messages are highlighted until you mark them read.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="glass rounded-full px-4 py-2 text-xs font-semibold text-slate-400"><b class="text-slate-100">@Model.UnreadMessages</b> unread · @Model.Messages.Count total</span>
+                    <select id="msg-filter" class="field !w-auto !py-2 text-xs"><option value="all">All messages</option><option value="0">Unread</option><option value="1">Read</option></select>
+                    @if (Model.UnreadMessages > 0)
+                    {
+                        <button type="button" data-read-all class="@ActBtn !py-2">Mark all read</button>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Messages.Count == 0)
+            {
+                @Ui.Empty("No messages yet", "Messages sent from the Contact us page will appear here.")
+            }
+            else
+            {
+                <div class="grid gap-4 md:grid-cols-2" id="msg-list">
+                    @foreach (var m in Model.Messages)
+                    {
+                        <div data-msg data-read="@(m.IsRead ? "1" : "0")" class="glass card-hover rounded-3xl p-6 @(m.IsRead ? "" : "ring-1 ring-cyan-400/50")">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="grid h-9 w-9 place-items-center rounded-xl bg-violet-400/10 text-xs font-bold text-violet-300">@Fmt.Initials(m.Name)</span>
+                                    <div>
+                                        <p class="font-semibold text-slate-200">@m.Name</p>
+                                        <a href="mailto:@(m.Email)" class="text-xs text-cyan-300 hover:underline">@m.Email</a>
+                                    </div>
+                                </div>
+                                @if (m.IsRead)
+                                {
+                                    <span class="rounded-full border border-slate-700/80 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Read</span>
+                                }
+                                else
+                                {
+                                    <span class="flex items-center gap-1.5 rounded-full bg-cyan-400/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-300"><span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>New</span>
+                                }
+                            </div>
+                            <p class="mt-4 whitespace-pre-line break-words text-sm leading-relaxed @(m.IsRead ? "text-slate-400" : "text-slate-200")">@m.Message</p>
+                            <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
+                                <span class="text-xs text-slate-500">@Fmt.Stamp(m.CreatedAt)</span>
+                                <div class="flex items-center gap-2">
+                                    <a href="mailto:@(m.Email)?subject=Your%20message%20to%20Nexus" class="@ActBtn">Reply</a>
+                                    <button type="button" data-crud-patch="messages" data-id="@m.Id" data-body='{"isRead":@(m.IsRead ? "false" : "true")}' class="@ActBtn">@(m.IsRead ? "Mark unread" : "Mark read")</button>
+                                    <button type="button" data-crud-delete="messages" data-id="@m.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- ------------------------------ faqs ------------------------------ -->
+    <section data-panel="faqs" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "faqs", "Help centre", "Questions and answers shown on the public FAQ page"))
+
+        <div class="space-y-5">
+            @await Html.PartialAsync("_CrudHead", ("faqs", faqHead))
+            <div class="glass overflow-hidden rounded-3xl" data-table data-page-size="8" data-search-placeholder="Search questions…"><div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm">
+                    <thead><tr class="border-b border-slate-800 text-left">
+                        @foreach (var h in new[] { "Order", "Question", "Published" }) { <th data-sort class="@Th">@h</th> }
+                        <th class="@Th text-right">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @if (Model.Faqs.Count == 0)
+                        {
+                            <tr><td colspan="4" class="px-5 py-8">@Ui.Empty("No FAQs yet", "Use “Add question” to publish the first one.")</td></tr>
+                        }
+                        @foreach (var r in Model.Faqs)
+                        {
+                            <tr class="table-row">
+                                <td class="px-5 py-3.5 font-mono text-xs text-slate-500">@r.SortOrder</td>
+                                <td class="px-5 py-3.5"><p class="font-semibold text-slate-200">@r.Question</p><p class="mt-0.5 line-clamp-2 max-w-xl text-xs text-slate-500">@r.Answer</p></td>
+                                <td class="px-5 py-3.5">@Ui.Pill(r.Active ? "active" : "inactive", r.Active ? "Live" : "Hidden")</td>
+                                <td class="px-5 py-3.5"><div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-edit="faqs" data-id="@r.Id" class="@ActBtn">Edit</button>
+                                    <button type="button" data-crud-patch="faqs" data-id="@r.Id" data-body='{"active":@(r.Active ? "false" : "true")}' class="@ActBtn">@(r.Active ? "Hide" : "Publish")</button>
+                                    <button type="button" data-crud-delete="faqs" data-id="@r.Id" title="Delete" class="@DelBtn"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+                                </div></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></div>
+        </div>
+    </section>
+
+    <!-- ------------------------------ activity log ------------------------------ -->
+    <section data-panel="activity" hidden>
+        @await Html.PartialAsync("_TabBanner", ("admin", "activity", "Activity log", "Who changed what, and when"))
+
+        <div class="space-y-5" id="audit-root">
+            <div>
+                <h2 class="font-display text-xl font-bold text-slate-100">Activity log</h2>
+                <p class="mt-1 text-sm text-slate-500">Every change made in the system — who did it, when, and what changed (old → new values for edits). Read-only: nobody can edit or delete these entries.</p>
+            </div>
+
+            <div class="glass overflow-hidden rounded-3xl">
+                <div class="tt-bar">
+                    <select id="audit-user" aria-label="Filter by user" class="field !w-auto !py-2 text-xs"><option value="">All users</option></select>
+                    <select id="audit-action" aria-label="Filter by action" class="field !w-auto !py-2 text-xs">
+                        <option value="">All actions</option>
+                        @foreach (var (val, label) in new[] { ("create", "Created"), ("update", "Edited"), ("delete", "Deleted"), ("status", "Status change"), ("payment", "Payment"), ("image", "Picture"), ("login", "Sign in"), ("logout", "Sign out") })
+                        {
+                            <option value="@val">@label</option>
+                        }
+                    </select>
+                    <label class="flex items-center gap-2 text-xs text-slate-500">From <input type="date" id="audit-from" class="field !w-auto !py-2 text-xs" /></label>
+                    <label class="flex items-center gap-2 text-xs text-slate-500">To <input type="date" id="audit-to" class="field !w-auto !py-2 text-xs" /></label>
+                    <div class="tt-search"><i data-lucide="search"></i><input type="search" id="audit-q" class="field" placeholder="Search details…" aria-label="Search the activity log" /></div>
+                    <button type="button" id="audit-reset" class="@ActBtn !py-2">Reset</button>
+                    <span class="tt-count" id="audit-count" aria-live="polite"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[860px] text-sm">
+                        <thead><tr class="border-b border-slate-800 text-left">
+                            @foreach (var h in new[] { "When", "User", "Action", "Record", "What changed" }) { <th class="@Th">@h</th> }
+                        </tr></thead>
+                        <tbody id="audit-body"><tr><td colspan="5" class="px-5 py-10 text-center text-sm text-slate-500">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="tt-pager" id="audit-pager" hidden>
+                    <span data-info></span>
+                    <div class="flex gap-2"><button type="button" data-prev>Previous</button><button type="button" data-next>Next</button></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script type="application/json" id="registry-data">@Html.Raw(J(new {
+        employees = Model.Employees.Select(e => new { e.Id, e.Name, e.Email, e.Phone, e.Department, e.Designation, e.ShopId, e.Status, e.ImageUrl }),
+        vendors = Model.Vendors.Select(v => new { v.Id, v.Name, v.ContactPerson, v.Email, v.Phone, v.Address, v.Products, v.ImageUrl }),
+        equipment = Model.Equipment.Select(e => new { e.Id, e.Name, e.Type, e.VendorId, e.UnitPrice, e.Stock, e.ReorderLevel, e.ImageUrl }),
+        shops = Model.Shops.Select(x => new { x.Id, x.Code, x.Name, x.City, x.Address, x.Phone, x.Manager, x.ImageUrl }),
+        plans = Model.Plans.Select(p => new { p.Id, p.ConnectionType, p.Category, p.Name, p.Speed, p.Price, p.ValidityLabel, p.ValidityMonths, p.Deposit, p.CallRates, p.Description, p.ImageUrl }),
+        customers = Model.Customers.Select(c => new { c.Id, c.Name, c.Email, c.Phone, c.Address, c.City, c.IdProof, c.AltPhone, c.ImageUrl }),
+        faqs = Model.Faqs.Select(f => new { f.Id, f.Question, f.Answer, f.SortOrder }),
+        shopOptions = Model.Shops.Select(x => new { value = x.Id.ToString(), label = x.Code + " — " + x.Name }),
+        vendorOptions = Model.Vendors.Select(v => new { value = v.Id.ToString(), label = v.Name }),
+        cityOptions = Fmt.Cities.Select(c => new { value = c.Name, label = c.Name + " (" + c.Code + ")" }),
+    }))</script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard-charts.js" asp-append-version="true"></script>
+    <script src="~/js/admin.js" asp-append-version="true"></script>
+    <script src="~/js/activity.js" asp-append-version="true"></script>
+    <script src="~/js/tickets.js" asp-append-version="true"></script>
+}

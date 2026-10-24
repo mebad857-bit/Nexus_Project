@@ -1,0 +1,162 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.Extensions.Configuration.IConfiguration Cfg
+@{
+    // Ui:PrecompiledCss (appsettings.json): true = ready-made css/tailwind.css (fast); false = Tailwind compiles in the browser (slow, only for editing styles)
+    var staticCss = !string.Equals(Cfg["Ui:PrecompiledCss"], "false", StringComparison.OrdinalIgnoreCase);
+    var csrf = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+    var title = ViewData["Title"] as string ?? "Nexus Communication System — Telecom & Internet Services";
+    // loading screen (css/loader.css + js/loader.js): real logo if it exists, optional own music at wwwroot/audio/intro.mp3
+    var nxlLogo = Ui.AssetExists("/images/brand/logo-mark");
+    var nxlLogoSrc = nxlLogo ? Ui.Asset("/images/brand/logo-mark") : "";
+    var nxlMusic = Ui.WebRoot != null && System.IO.File.Exists(System.IO.Path.Combine(Ui.WebRoot, "audio", "intro.mp3"));
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- nx-loader-head:start -->
+    <script>
+        /* loading screen: shows once per browser session (add ?intro=1 to the address to see it again, ?intro=0 to skip it) */
+        (function () {
+            var d = document.documentElement, on = true;
+            try {
+                var q = location.search;
+                if (/[?&]intro=1(&|$)/.test(q)) sessionStorage.removeItem('nx.intro');
+                else if (sessionStorage.getItem('nx.intro') === '1') on = false;
+                if (/[?&]intro=0(&|$)/.test(q)) on = false;
+            } catch (e) { }
+            if (on) { d.classList.add('nx-loader-on', 'nx-loading'); setTimeout(function () { d.classList.remove('nx-loading', 'nx-loader-on'); }, 20000); }
+        })();
+    </script>
+    <style>html.nx-loader-on { background: #eaf0ff; } html.nx-loading { overflow: hidden; }</style>
+    <noscript><style>#nx-loader { display: none !important; } html.nx-loading { overflow: auto !important; }</style></noscript>
+    <link rel="stylesheet" href="~/css/loader.css" asp-append-version="true" />
+    <!-- nx-loader-head:end -->
+    <title>@title</title>
+    <meta name="description" content="Nexus Communication System — dial-up, broadband and landline connections across the territory. Track orders, manage connections, and explore plans built for every need." />
+    <meta name="csrf-token" content="@csrf" />
+    <link rel="icon" type="image/png" href="~/favicon.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
+
+    @if (!staticCss)
+    {
+        <script src="https://cdn.jsdelivr.net/npm/@@tailwindcss/browser@@4"></script>
+        @await Html.PartialAsync("_Theme")
+    }
+    <script src="~/js/vendor/lucide.min.js" asp-append-version="true" defer></script>
+    <link rel="stylesheet" href="~/css/fx.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/liquid-glass.css" asp-append-version="true" />
+    @await RenderSectionAsync("Head", required: false)
+    @if (staticCss) { <link rel="stylesheet" href="~/css/tailwind.css" asp-append-version="true" /> }
+    <script>
+        /* page-transition handshake: if we arrived through an internal link, start behind the curtain (fx.js lifts it) */
+        try { if (sessionStorage.getItem('fx.nav')) { document.documentElement.classList.add('fx-entering'); setTimeout(function () { document.documentElement.classList.remove('fx-entering'); }, 2500); } } catch (e) { }
+    </script>
+</head>
+<body class="bg-ink-950 font-body text-slate-200 antialiased">
+    <!-- nx-loader:start -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="nxlGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#2563eb" /><stop offset="0.55" stop-color="#4f46e5" /><stop offset="1" stop-color="#7c3aed" />
+            </linearGradient>
+            <linearGradient id="nxlOrbitGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#2563eb" stop-opacity="0.15" /><stop offset="0.5" stop-color="#6366f1" stop-opacity="0.75" /><stop offset="1" stop-color="#7c3aed" stop-opacity="0.15" />
+            </linearGradient>
+        </defs>
+    </svg>
+    <div id="nx-loader" role="status" aria-live="polite" aria-label="Loading Nexus Service Marketing" @Html.Raw(nxlMusic ? "data-music=\"/audio/intro.mp3\"" : "")>
+        <div class="nxl-bg" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i><i class="o4"></i><span class="nxl-grid"></span></div>
+
+        <button type="button" class="nxl-sound" data-state="on" aria-pressed="true" aria-label="Turn loading music off">
+            <span class="nxl-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span class="nxl-sound-label">Sound on</span>
+        </button>
+
+        <div class="nxl-stage">
+            @* orbit lines (static, painted once) + orbiting dots (pure CSS transforms, so they stay smooth even while the page is busy) *@
+            @foreach (var layer in new[] { "back", "front" })
+            {
+                <svg class="nxl-orbit nxl-orbit-@layer" viewBox="0 0 400 400" aria-hidden="true">
+                    <defs>
+                        <clipPath id="nxlClip-@layer"><rect x="-40" y="@(layer == "back" ? "-40" : "200")" width="480" height="240" /></clipPath>
+                        <path id="nxlPath-@layer" d="M 14 200 A 186 58 0 0 1 386 200 A 186 58 0 0 1 14 200" />
+                    </defs>
+                    <g transform="rotate(-21 200 200)" clip-path="url(#nxlClip-@layer)">
+                        <use href="#nxlPath-@layer" fill="none" stroke="url(#nxlOrbitGrad)" stroke-width="1.4" />
+                    </g>
+                    <g transform="rotate(34 200 200) translate(200 200) scale(0.86) translate(-200 -200)" clip-path="url(#nxlClip-@layer)">
+                        <use href="#nxlPath-@layer" fill="none" stroke="url(#nxlOrbitGrad)" stroke-width="1.4" />
+                    </g>
+                </svg>
+                <div class="nxl-dots nxl-dots-@layer" aria-hidden="true">
+                    <div class="nxl-o nxl-o1"><div class="x"><div class="y"><i class="d"></i></div></div></div>
+                    <div class="nxl-o nxl-o2"><div class="x"><div class="y"><i class="d s"></i></div></div></div>
+                </div>
+            }
+
+            <span class="nxl-glow" aria-hidden="true"></span>
+
+            <svg class="nxl-ring" viewBox="0 0 200 200" aria-hidden="true">
+                <circle class="track" cx="100" cy="100" r="92" />
+                <circle class="dots" cx="100" cy="100" r="98.5" />
+                <circle class="arc arcg" cx="100" cy="100" r="92" />
+                <circle class="arc" cx="100" cy="100" r="92" />
+                <g class="head"><circle class="hg" cx="100" cy="8" r="11" /><circle class="hc" cx="100" cy="8" r="4.6" /></g>
+            </svg>
+
+            <div class="nxl-tile @(nxlLogo ? "has-img" : "")">
+                <img @Html.Raw(nxlLogo ? "data-src=\"" + nxlLogoSrc + "\"" : "") alt="" decoding="async" />
+                <svg class="nxl-mono" viewBox="0 0 100 100" aria-hidden="true">
+                    <path d="M27 77 V23 L73 77 V30" />
+                    <circle cx="73" cy="22" r="6.4" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="nxl-brand">
+            <span class="nxl-word" aria-hidden="true"><span>N</span><span>E</span><span>X</span><span>U</span><span>S</span></span>
+            <span class="nxl-sub">Service Marketing</span>
+        </div>
+
+        <div class="nxl-meter">
+            <div class="nxl-bar" role="progressbar" aria-label="Loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+            <div class="nxl-row"><span class="nxl-status">Starting up…</span><span class="nxl-pct">0%</span></div>
+        </div>
+
+        <div class="nxl-tap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+            <span>Click anywhere to start the music</span>
+        </div>
+
+        <p class="nxl-foot">Telecom · Internet · Territory-wide</p>
+    </div>
+    <script src="~/js/loader.js" asp-append-version="true" onerror="document.documentElement.classList.remove('nx-loading','nx-loader-on')"></script>
+    <!-- nx-loader:end -->
+
+    <!-- liquid glass: lens-refraction filter used by liquid-glass.css (Chromium) -->
+    <svg id="lg-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <filter id="lg-warp" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.012" numOctaves="2" seed="7" result="noise" />
+            <feGaussianBlur in="noise" stdDeviation="2" result="soft" />
+            <feDisplacementMap in="SourceGraphic" in2="soft" scale="26" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+    </svg>
+    @RenderBody()
+
+    @await Html.PartialAsync("_Chatbot")
+    @if (User.Identity?.IsAuthenticated == true) { @await Html.PartialAsync("_NotificationAssets") }
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/fx.js" asp-append-version="true"></script>
+    <script src="~/js/liquid-glass.js" asp-append-version="true"></script>
+    <script src="~/js/images.js" asp-append-version="true"></script>
+    <script src="~/js/chatbot.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true) { <script src="~/js/notifications.js" asp-append-version="true"></script> }
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,61 @@
+@* Styles for the notification bell + its dropdown (the dropdown is built by notifications.js and lives on <body>
+   so no scrolling sidebar can clip it). Only the theme's own colours are used. Rendered once from _Layout. *@
+<style>
+    .nxn-badge {
+        position: absolute; top: -0.35rem; right: -0.35rem; min-width: 1.1rem; height: 1.1rem; padding: 0 0.3rem;
+        border-radius: 9999px; font-size: 0.62rem; font-weight: 800; line-height: 1.1rem; text-align: center; color: #fff;
+        background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 0 0 2px #fff;
+    }
+    .nxn-badge[hidden] { display: none; }
+    .nxn-badge.pop { animation: nxnPop 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+    @@keyframes nxnPop { 0% { transform: scale(0.4); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+    .nxn-panel {
+        position: fixed; z-index: 120; display: flex; flex-direction: column; overflow: hidden;
+        width: min(23.5rem, calc(100vw - 1.5rem)); max-height: min(30rem, calc(100vh - 6rem));
+        border-radius: 1.25rem; color: #1e293b; animation: nxnIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nxn-panel[hidden] { display: none; }
+    @@keyframes nxnIn { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+    .nxn-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 1rem; border-bottom: 1px solid #e2e8f0; }
+    .nxn-head h2 { margin: 0; font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; font-weight: 700; }
+    .nxn-head small { display: block; margin-top: 0.1rem; font-size: 0.7rem; color: #64748b; }
+    .nxn-all {
+        flex: none; border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 0.6rem; background: #fff; color: #4f46e5;
+        padding: 0.35rem 0.7rem; font: inherit; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: background 0.2s ease, color 0.2s ease;
+    }
+    .nxn-all:hover:not(:disabled) { background: #4f46e5; color: #fff; }
+    .nxn-all:disabled { opacity: 0.45; cursor: default; }
+    .nxn-all:focus-visible, .nxn-item:focus-visible { outline: 3px solid rgba(99, 102, 241, 0.5); outline-offset: -3px; }
+
+    .nxn-list { overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0.35rem; list-style: none; }
+    .nxn-item {
+        display: flex; width: 100%; align-items: flex-start; gap: 0.7rem; padding: 0.65rem 0.6rem; border: 0; border-radius: 0.9rem;
+        background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background 0.18s ease;
+    }
+    .nxn-item:hover { background: rgba(99, 102, 241, 0.07); }
+    .nxn-item.unread { background: rgba(99, 102, 241, 0.09); }
+    .nxn-item.unread:hover { background: rgba(99, 102, 241, 0.14); }
+    .nxn-ico { display: grid; place-items: center; flex: none; width: 2.1rem; height: 2.1rem; border-radius: 0.7rem; background: rgba(99, 102, 241, 0.12); color: #4f46e5; }
+    .nxn-ico svg { width: 1rem; height: 1rem; }
+    .nxn-ico.t-bill { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+    .nxn-ico.t-payment { background: rgba(16, 185, 129, 0.14); color: #059669; }
+    .nxn-ico.t-complaint { background: rgba(244, 63, 94, 0.12); color: #e11d48; }
+    .nxn-ico.t-ticket { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+    .nxn-ico.t-info { background: #f1f5f9; color: #64748b; }
+    .nxn-body { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.12rem; }
+    .nxn-title { font-size: 0.82rem; font-weight: 700; line-height: 1.3; }
+    .nxn-msg { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.76rem; line-height: 1.45; color: #475569; overflow-wrap: anywhere; }
+    .nxn-time { font-size: 0.68rem; color: #94a3b8; }
+    .nxn-dot { flex: none; align-self: center; width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: #4f46e5; }
+    .nxn-item:not(.unread) .nxn-dot { visibility: hidden; }
+    .nxn-item:not(.unread) .nxn-title { font-weight: 600; }
+
+    .nxn-empty { padding: 2.2rem 1.2rem; text-align: center; font-size: 0.8rem; color: #64748b; }
+    .nxn-empty b { display: block; margin-bottom: 0.2rem; font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-size: 0.9rem; color: #1e293b; }
+
+    @@media (max-width: 480px) { .nxn-panel { left: 0.75rem !important; right: 0.75rem; width: auto; } }
+    @@media (prefers-reduced-motion: reduce) { .nxn-panel, .nxn-badge.pop { animation: none; } }
+    @@media print { .nxn, .nxn-panel { display: none !important; } }
+</style>

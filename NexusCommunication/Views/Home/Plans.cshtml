@@ -1,0 +1,87 @@
+@model List<Plan>
+@{
+    ViewData["Title"] = "Plans — Nexus Communication System";
+    var deposits = new[]
+    {
+        (Icon: "radio", Type: "Dial-Up Connection", Amount: 325m, Note: "Requires a Nexus landline"),
+        (Icon: "wifi", Type: "Broadband Connection", Amount: 500m, Note: "Modem or router supplied"),
+        (Icon: "phone", Type: "Landline Connection", Amount: 250m, Note: "Voice + optional internet"),
+    };
+}
+<main class="relative min-h-screen">
+    @await Html.PartialAsync("_Nav")
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-[34rem] overflow-hidden">
+        <div class="grid-bg absolute inset-0"></div>
+        <div class="absolute left-1/2 top-[-10rem] h-96 w-[50rem] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[130px]"></div>
+    </div>
+
+    <section class="relative mx-auto max-w-7xl px-5 pb-16 pt-36 lg:px-8">
+        @await Html.PartialAsync("_SectionHeader", ("Complete tariff sheet", "Every plan. Every charge. <span class=\"text-gradient\">Zero fine print.</span>",
+            (string?)"Hourly packs, unlimited tiers and voice rentals across all three connection types — maintained live by the Nexus administration desk.", true))
+        <div class="mt-14">
+            @await Html.PartialAsync("_PlansBrowser", new PlansBrowserVm(Model, false))
+        </div>
+    </section>
+
+    <section class="relative mx-auto max-w-7xl px-5 pb-12 lg:px-8">
+        <figure class="relative aspect-[3/1] overflow-hidden rounded-[2rem] border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+            <img src="@Ui.Asset("/images/hero/plans-hero")" alt="Nexus plans — every connection, every charge" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-r from-ink-950/80 via-ink-950/30 to-transparent"></div>
+            <figcaption class="absolute bottom-6 left-6 max-w-sm font-display text-xl font-bold text-slate-100 sm:text-2xl">One tariff sheet. Three ways to connect.</figcaption>
+        </figure>
+    </section>
+
+    <section class="relative mx-auto max-w-7xl px-5 pb-28 lg:px-8">
+        <div class="grid gap-6 lg:grid-cols-3">
+            @foreach (var d in deposits)
+            {
+                <div class="glass card-hover rounded-3xl p-7">
+                    <div class="flex items-center justify-between">
+                        <span class="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/15 to-violet-500/15 ring-1 ring-slate-700">
+                            <i data-lucide="@d.Icon" class="h-5 w-5 text-cyan-300"></i>
+                        </span>
+                        <span class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Security deposit</span>
+                    </div>
+                    <p class="mt-5 font-display text-4xl font-bold text-slate-100">@Fmt.Money(d.Amount)</p>
+                    <p class="mt-1 text-sm font-semibold text-slate-300">@d.Type</p>
+                    <p class="mt-1 text-xs text-slate-500">@d.Note · fully refundable on withdrawal</p>
+                </div>
+            }
+        </div>
+
+        <div class="mt-6 grid gap-6 lg:grid-cols-2">
+            <div class="glass flex items-start gap-5 rounded-3xl p-7">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-500/15 ring-1 ring-violet-400/30">
+                    <i data-lucide="receipt" class="h-5 w-5 text-violet-300"></i>
+                </span>
+                <div>
+                    <h3 class="font-display text-lg font-bold text-slate-100">Service tax — 12.24%</h3>
+                    <p class="mt-2 text-sm leading-relaxed text-slate-400">
+                        Applied on the whole bill (rental + usage − discounts) as per government regulation.
+                        Every invoice on the portal shows the exact tax line before you pay.
+                    </p>
+                </div>
+            </div>
+            <div class="glass flex items-start gap-5 rounded-3xl p-7">
+                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cyan-500/15 ring-1 ring-cyan-400/30">
+                    <i data-lucide="badge-percent" class="h-5 w-5 text-cyan-300"></i>
+                </span>
+                <div>
+                    <h3 class="font-display text-lg font-bold text-slate-100">Bulk order rebates</h3>
+                    <p class="mt-2 text-sm leading-relaxed text-slate-400">
+                        10–15 lines earn 25% off advance &amp; deposit, 15–25 earn 50%, 25–50 earn 75%, and
+                        50+ lines earn a full 100% waiver. Applied automatically at the outlet.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass mt-6 flex items-center gap-4 rounded-3xl p-6 text-sm text-slate-400">
+            <i data-lucide="landmark" class="h-5 w-5 shrink-0 text-cyan-400/70"></i>
+            Accepted payment channels: any Nexus retail outlet counter, or the accounts desk at the
+            city head office. Retain your invoice number for reconciliation.
+        </div>
+    </section>
+
+    @await Html.PartialAsync("_Footer")
+</main>

@@ -1,0 +1,11 @@
+@* One wide picture at the top of a single dashboard tab: images/tabs/{role}-{tab} (any of .png .jpg .jpeg .webp).
+   The box keeps the 21:9 shape of the picture (2560x1080), so the whole height shows and nothing is cut. Every tab has its own picture so switching tabs never looks like the same page. The first tab of each desk keeps the 3-picture strip (_DeskHero). *@
+@model (string Role, string Tab, string Caption, string Sub)
+<figure class="relative mb-8 w-full overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10" style="aspect-ratio: 3.5 / 1;">
+    <img src="@Ui.Asset($"/images/tabs/{Model.Role}-{Model.Tab}")" alt="@Model.Caption" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+    <div class="absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/30 to-transparent"></div>
+    <figcaption class="absolute bottom-4 left-5 right-5">
+        <p class="font-display text-base font-bold tracking-tight text-slate-50 sm:text-lg">@Model.Caption</p>
+        <p class="mt-0.5 text-xs text-slate-300/90">@Model.Sub</p>
+    </figcaption>
+</figure>

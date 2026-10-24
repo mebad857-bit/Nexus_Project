@@ -1,0 +1,17 @@
+@* Model: (string Eyebrow, string TitleHtml, string? Sub, bool Center) - TitleHtml is trusted static markup *@
+@model (string Eyebrow, string TitleHtml, string? Sub, bool Center)
+<div class="reveal max-w-2xl @(Model.Center ? "mx-auto text-center" : "")">
+    <p class="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-cyan-400" @Html.Raw(Model.Center ? "style=\"justify-content:center\"" : "")>
+        <span class="inline-block h-px w-8 bg-cyan-400/70"></span>
+        @Model.Eyebrow
+        @if (Model.Center)
+        {
+            <span class="inline-block h-px w-8 bg-cyan-400/70"></span>
+        }
+    </p>
+    <h2 class="mt-4 font-display text-4xl font-bold leading-[1.05] tracking-tight text-slate-100 sm:text-5xl">@Html.Raw(Model.TitleHtml)</h2>
+    @if (!string.IsNullOrEmpty(Model.Sub))
+    {
+        <p class="mt-5 text-base leading-relaxed text-slate-400">@Model.Sub</p>
+    }
+</div>

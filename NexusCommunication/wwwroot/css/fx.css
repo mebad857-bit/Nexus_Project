@@ -1,0 +1,279 @@
+/* ============================================================================
+   Nexus FX layer — interaction & motion polish for the whole site.
+   Pure presentation: same palette (white · blue · purple), no markup/backend changes.
+   Loaded after _Theme so it can refine .glass / .btn-glow / .side-tab etc.
+   Everything is switched off by prefers-reduced-motion (see bottom).
+   ============================================================================ */
+
+@property --sa { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --ba { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+:root {
+  --fx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fx-blue: 37, 99, 235;
+  --fx-indigo: 79, 70, 229;
+  --fx-violet: 124, 58, 237;
+}
+
+/* ------------------------------------------------------------------ progress bar */
+#fx-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 400;
+  pointer-events: none; transform-origin: 0 50%; transform: scaleX(0);
+  background: linear-gradient(90deg, #2563eb, #4f46e5 50%, #9333ea);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.55);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+#fx-progress.on { opacity: 1; }
+#fx-progress.busy::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  background-size: 40% 100%; background-repeat: no-repeat;
+  animation: fxBusy 0.9s linear infinite;
+}
+@keyframes fxBusy { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+
+/* ------------------------------------------------------------------ cursor aura + ring */
+.fx-aura {
+  position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none;
+  width: 560px; height: 560px; margin: -280px 0 0 -280px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--fx-indigo), 0.13) 0%, rgba(var(--fx-violet), 0.07) 38%, transparent 68%);
+  opacity: 0; transition: opacity 0.6s ease; will-change: transform;
+}
+.fx-aura.on { opacity: 1; }
+
+.fx-ring {
+  position: fixed; left: 0; top: 0; z-index: 390; pointer-events: none;
+  width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+  border: 1.5px solid rgba(var(--fx-indigo), 0.55);
+  background: rgba(var(--fx-indigo), 0);
+  opacity: 0; will-change: transform;
+  transition: opacity 0.3s ease, width 0.35s var(--fx-ease), height 0.35s var(--fx-ease), margin 0.35s var(--fx-ease),
+              background-color 0.3s ease, border-color 0.3s ease;
+}
+.fx-ring.on { opacity: 1; }
+.fx-ring.is-link { width: 58px; height: 58px; margin: -29px 0 0 -29px; background: rgba(var(--fx-indigo), 0.09); border-color: rgba(var(--fx-violet), 0.7); }
+.fx-ring.is-text { width: 4px; height: 26px; margin: -13px 0 0 -2px; border-radius: 3px; background: rgba(var(--fx-indigo), 0.7); border-color: transparent; }
+.fx-ring.is-down { width: 24px; height: 24px; margin: -12px 0 0 -12px; background: rgba(var(--fx-indigo), 0.18); }
+
+.fx-pulse {
+  position: fixed; z-index: 389; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px;
+  border-radius: 50%; border: 2px solid rgba(var(--fx-indigo), 0.5);
+  animation: fxPulse 0.7s var(--fx-ease) forwards;
+}
+@keyframes fxPulse { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(5.5); opacity: 0; } }
+
+/* ------------------------------------------------------------------ glass cards: cursor spotlight */
+.glass {
+  background-image:
+    radial-gradient(380px circle at var(--sx, 50%) var(--sy, 0%), rgba(var(--fx-indigo), calc(var(--sa) * 0.16)), transparent 62%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(244, 247, 255, 0.78));
+  transition: --sa 0.4s ease, border-color 0.4s ease, box-shadow 0.5s ease;
+}
+.glass-strong {
+  background-image:
+    radial-gradient(460px circle at var(--sx, 50%) var(--sy, 0%), rgba(var(--fx-indigo), calc(var(--sa) * 0.12)), transparent 62%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.97), rgba(246, 248, 255, 0.94));
+  transition: --sa 0.4s ease, border-color 0.4s ease, box-shadow 0.5s ease;
+}
+.glass:hover, .glass-strong:hover { --sa: 1; }
+.card-hover { transition: transform 0.5s var(--fx-ease), border-color 0.4s ease, box-shadow 0.5s ease, --sa 0.4s ease; }
+/* floating hero chips and toast-like glass should not react */
+.pointer-events-none.glass, .pointer-events-none > .glass { --sa: 0 !important; }
+
+/* tilt: .card-hover keeps its lift; JS feeds --rx / --ry */
+.card-hover { transform-style: preserve-3d; }
+.card-hover:hover {
+  transform: perspective(1000px) translateY(-6px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.14s ease-out, border-color 0.4s ease, box-shadow 0.5s ease, --sa 0.4s ease;
+}
+.fx-tilt:hover {
+  transform: perspective(1000px) translateY(-3px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.14s ease-out, border-color 0.4s ease, box-shadow 0.5s ease, --sa 0.4s ease;
+}
+.fx-tilt { transition: transform 0.5s var(--fx-ease), border-color 0.4s ease, box-shadow 0.5s ease, --sa 0.4s ease; }
+
+/* ------------------------------------------------------------------ buttons: shine, ripple, magnet */
+.btn-glow { overflow: hidden; isolation: isolate; }
+.btn-glow::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -70%; width: 45%; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+  transform: skewX(-20deg);
+}
+.btn-glow:hover::after { left: 130%; transition: left 0.75s var(--fx-ease); }
+.btn-glow:active { transform: translateY(0) scale(0.97); }
+.fx-magnet { transition: translate 0.35s var(--fx-ease), transform 0.35s var(--fx-ease), box-shadow 0.35s ease, filter 0.3s ease; }
+
+.fx-ripple-host { position: relative; overflow: hidden; }
+.fx-ripple {
+  position: absolute; border-radius: 50%; pointer-events: none; transform: scale(0);
+  background: rgba(255, 255, 255, 0.5); animation: fxRipple 0.65s ease-out forwards;
+}
+.fx-ripple.dark { background: rgba(var(--fx-indigo), 0.22); }
+@keyframes fxRipple { to { transform: scale(1); opacity: 0; } }
+
+a.rounded-full.border, button.rounded-full.border { transition: border-color 0.3s ease, color 0.3s ease, background-color 0.3s ease, transform 0.35s var(--fx-ease), box-shadow 0.35s ease; }
+a.rounded-full.border:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(var(--fx-indigo), 0.5); background-color: rgba(var(--fx-indigo), 0.05); }
+
+/* ------------------------------------------------------------------ text */
+.text-gradient {
+  background-size: 220% auto;
+  animation: fxFlow 7s ease-in-out infinite alternate;
+}
+@keyframes fxFlow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+.reveal:not(.in) p span.inline-block.h-px { transform: scaleX(0); }
+.reveal p span.inline-block.h-px { transition: transform 0.9s var(--fx-ease) 0.25s; transform-origin: left; }
+.reveal p span.inline-block.h-px:last-child { transform-origin: right; }
+
+/* reveal variants (data-reveal="left|right|zoom|blur") */
+.reveal[data-reveal="left"] { transform: translateX(-44px); }
+.reveal[data-reveal="right"] { transform: translateX(44px); }
+.reveal[data-reveal="zoom"] { transform: scale(0.92); }
+.reveal[data-reveal="blur"] { filter: blur(10px); transition: opacity 0.85s var(--fx-ease) var(--d, 0s), transform 0.85s var(--fx-ease) var(--d, 0s), filter 0.85s var(--fx-ease) var(--d, 0s); }
+.reveal[data-reveal].in { transform: none; filter: none; }
+
+/* ------------------------------------------------------------------ navigation */
+#site-header { transition: padding 0.5s, background 0.5s, box-shadow 0.5s, border-color 0.5s, transform 0.5s var(--fx-ease); }
+#site-header.fx-hide { transform: translateY(-110%); }
+#site-header nav { position: relative; }
+#site-header nav > a:hover { background: transparent; }
+.fx-nav-pill {
+  position: absolute; z-index: 0; top: 0; left: 0; height: 100%; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(100deg, rgba(var(--fx-blue), 0.12), rgba(var(--fx-violet), 0.12));
+  box-shadow: inset 0 0 0 1px rgba(var(--fx-indigo), 0.18);
+  opacity: 0; transition: transform 0.4s var(--fx-ease), width 0.4s var(--fx-ease), height 0.4s var(--fx-ease), opacity 0.25s ease;
+}
+.fx-nav-pill.on { opacity: 1; }
+#site-header nav > a { position: relative; z-index: 1; }
+#site-header nav > a.text-cyan-300::after {
+  content: ""; position: absolute; left: 50%; bottom: 3px; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px;
+  background: linear-gradient(90deg, #2563eb, #9333ea);
+}
+#nav-mobile:not([hidden]) { animation: fxDrop 0.4s var(--fx-ease) backwards; }
+@keyframes fxDrop { from { opacity: 0; transform: translateY(-14px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------------------------------------------ dashboards */
+.side-tab { position: relative; overflow: hidden; }
+.side-tab svg { transition: transform 0.35s var(--fx-ease); }
+.side-tab:hover:not(.active) { transform: translateX(4px); }
+.side-tab:hover svg { transform: scale(1.18) rotate(-6deg); }
+.side-tab.active svg { transform: scale(1.1); }
+.side-tab { transition: all 0.25s ease, transform 0.35s var(--fx-ease); }
+.tab-btn { position: relative; overflow: hidden; transition: color 0.25s ease, box-shadow 0.3s ease, transform 0.3s var(--fx-ease); }
+.tab-btn:hover { transform: translateY(-1px); }
+.plan-tab, .seg { transition: color 0.25s ease, background 0.3s ease, transform 0.3s var(--fx-ease); position: relative; overflow: hidden; }
+
+/* staggered entrance for the content of each tab panel */
+[data-panel]:not([hidden]) > *:not(.reveal):not(.grid) { animation: fxRise 0.6s var(--fx-ease) backwards; }
+[data-panel]:not([hidden]) > .grid > *:not(.reveal) { animation: fxRise 0.6s var(--fx-ease) backwards; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(1) { animation-delay: 0.04s; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(2) { animation-delay: 0.10s; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(3) { animation-delay: 0.16s; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(4) { animation-delay: 0.22s; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(5) { animation-delay: 0.28s; }
+[data-panel]:not([hidden]) > .grid > *:nth-child(n+6) { animation-delay: 0.34s; }
+[data-panel]:not([hidden]) > *:nth-child(1) { animation-delay: 0.03s; }
+[data-panel]:not([hidden]) > *:nth-child(2) { animation-delay: 0.09s; }
+[data-panel]:not([hidden]) > *:nth-child(3) { animation-delay: 0.15s; }
+[data-panel]:not([hidden]) > *:nth-child(4) { animation-delay: 0.21s; }
+[data-panel]:not([hidden]) > *:nth-child(5) { animation-delay: 0.27s; }
+[data-panel]:not([hidden]) > *:nth-child(6) { animation-delay: 0.33s; }
+[data-panel]:not([hidden]) > *:nth-child(n+7) { animation-delay: 0.38s; }
+@keyframes fxRise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+/* table rows glide in (re-plays on every page / filter change) and get an accent edge */
+.table-row { animation: fxRow 0.45s var(--fx-ease) backwards; transition: background 0.2s ease, box-shadow 0.25s ease; }
+.table-row:nth-child(2) { animation-delay: 0.03s; } .table-row:nth-child(3) { animation-delay: 0.06s; }
+.table-row:nth-child(4) { animation-delay: 0.09s; } .table-row:nth-child(5) { animation-delay: 0.12s; }
+.table-row:nth-child(6) { animation-delay: 0.15s; } .table-row:nth-child(7) { animation-delay: 0.18s; }
+.table-row:nth-child(8) { animation-delay: 0.21s; } .table-row:nth-child(n+9) { animation-delay: 0.24s; }
+.table-row:hover { box-shadow: inset 3px 0 0 #6366f1; }
+@keyframes fxRow { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------------------------------------------ inputs */
+.field { transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.3s var(--fx-ease), background-color 0.25s ease; }
+.field:hover:not(:focus) { border-color: rgba(var(--fx-indigo), 0.4); }
+.field:focus { transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16), 0 14px 26px -16px rgba(var(--fx-indigo), 0.5); }
+.fx-field-wrap { position: relative; }
+
+/* ------------------------------------------------------------------ misc polish */
+.animate-marquee:hover { animation-play-state: paused; }
+.toast { position: relative; overflow: hidden; }
+.toast::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; transform-origin: 0 50%;
+  background: linear-gradient(90deg, #2563eb, #9333ea); animation: fxToast var(--fx-toast, 4.2s) linear forwards;
+}
+.toast[data-type="error"] { --fx-toast: 6.5s; }
+.toast[data-type="success"]::after { background: linear-gradient(90deg, #10b981, #14b8a6); }
+.toast[data-type="error"]::after { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+.toast[data-type="warn"]::after { background: linear-gradient(90deg, #f59e0b, #ea580c); }
+@keyframes fxToast { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* chart / progress bars gently glow while animating in */
+.chart-bar { transition: height 0.9s var(--fx-ease), y 0.9s var(--fx-ease), opacity 0.25s ease; }
+svg:hover > .chart-bar:not(:hover) { opacity: 0.55; }
+.chart-bar:hover { filter: brightness(1.12); }
+
+/* back-to-top with scroll ring */
+#fx-top {
+  position: fixed; right: 1.1rem; bottom: 5.5rem; z-index: 44; width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center; color: #4338ca; cursor: pointer;
+  background: rgba(255, 255, 255, 0.92); border: 0; box-shadow: 0 14px 30px -14px rgba(49, 46, 129, 0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  opacity: 0; transform: translateY(14px) scale(0.85); pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.45s var(--fx-ease), color 0.25s ease;
+}
+#fx-top.show { opacity: 1; transform: none; pointer-events: auto; }
+#fx-top:hover { color: #7c3aed; transform: translateY(-3px); }
+#fx-top svg.ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+#fx-top svg.ring circle { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+#fx-top svg.ring .bg { stroke: rgba(99, 102, 241, 0.16); }
+#fx-top svg.ring .fg { stroke: url(#fx-top-grad); transition: stroke-dashoffset 0.12s linear; }
+#fx-top .arrow { width: 18px; height: 18px; }
+
+/* ------------------------------------------------------------------ ambient constellation (all inner pages) */
+canvas.fx-ambient {
+  position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
+  opacity: var(--fx-ambient, 0.55);
+}
+
+/* ------------------------------------------------------------------ page transitions */
+html::before {
+  content: ""; position: fixed; inset: 0; z-index: 500; pointer-events: none;
+  background: linear-gradient(115deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
+  transform: scaleX(0); transform-origin: left center;
+}
+html.fx-leaving::before { transform: scaleX(1); transform-origin: left center; transition: transform 0.42s cubic-bezier(0.76, 0, 0.24, 1); }
+html.fx-entering::before { transform: scaleX(1); transform-origin: right center; }
+html.fx-entered::before { transform: scaleX(0); transform-origin: right center; transition: transform 0.6s cubic-bezier(0.76, 0, 0.24, 1); }
+html.fx-entering body > main, html.fx-entering body > div[data-accent] { opacity: 0; }
+html.fx-entered body > main, html.fx-entered body > div[data-accent] { animation: fxPage 0.75s var(--fx-ease) 0.15s backwards; }
+@keyframes fxPage { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+/* calculator numbers pop when they change */
+.fx-pop { display: inline-block; animation: fxPop 0.45s var(--fx-ease); }
+@keyframes fxPop { 0% { transform: scale(1); } 35% { transform: scale(1.07); filter: brightness(1.15); } 100% { transform: scale(1); } }
+
+/* the background grid lights up under the cursor */
+.grid-bg::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(79, 70, 229, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.5) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(circle 190px at var(--gx, -999px) var(--gy, -999px), #000 0%, transparent 100%);
+  mask-image: radial-gradient(circle 190px at var(--gx, -999px) var(--gy, -999px), #000 0%, transparent 100%);
+}
+
+/* ------------------------------------------------------------------ reduced motion / touch */
+@media (hover: none), (pointer: coarse) {
+  .fx-aura, .fx-ring { display: none !important; }
+  .card-hover:hover, .fx-tilt:hover { transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-aura, .fx-ring, .fx-pulse, canvas.fx-ambient, .grid-bg::after { display: none !important; }
+  html::before { display: none; }
+  .text-gradient { animation: none; }
+  .table-row, [data-panel] > * { animation: none !important; }
+  html.fx-entering body > main, html.fx-entering body > div[data-accent] { opacity: 1; }
+}

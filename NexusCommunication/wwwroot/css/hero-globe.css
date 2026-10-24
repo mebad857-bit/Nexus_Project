@@ -1,0 +1,73 @@
+/* ============================================================================
+   Nexus HERO — 3D network globe (layout + entrance only; all drawing is in js/hero-globe.js)
+   Loaded only by Views/Home/Index.cshtml through the layout's "Head" section.
+   To switch it off: delete the <div data-nx-globe> block from Index.cshtml.
+   ============================================================================ */
+
+.nx-globe {
+  --g: min(54vw, 92vh, 860px);                       /* globe box (square) */
+  position: absolute;
+  width: var(--g);
+  height: var(--g);
+  right: -6vw;
+  top: calc(50vh - var(--g) / 2 + 1vh);        /* centred on the first screen, not on the full hero height */
+  pointer-events: none;
+  animation: nxGlobeIn 1.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+/* soft violet-blue bloom behind the sphere */
+.nx-globe-halo {
+  position: absolute;
+  inset: -4%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(129, 140, 248, 0.34), rgba(99, 102, 241, 0.16) 46%, rgba(139, 92, 246, 0.07) 68%, rgba(139, 92, 246, 0.02) 86%, transparent 100%);
+}
+
+.nx-globe canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes nxGlobeIn {
+  from { opacity: 0; transform: translate3d(6%, 0, 0) scale(0.86); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* dragging the globe with the mouse should not select hero text */
+html.nx-globe-dragging, html.nx-globe-dragging * { user-select: none !important; -webkit-user-select: none !important; cursor: grabbing !important; }
+
+/* ---- narrower screens: the globe becomes a soft backdrop so the headline stays readable ---- */
+@media (max-width: 1279px) {
+  .nx-globe {
+    --g: min(62vw, 84vh, 700px);
+    right: -14vw;
+    top: calc(50vh - var(--g) / 2 + 2vh);
+    opacity: 0.78;
+    -webkit-mask-image: linear-gradient(to right, transparent 4%, #000 34%);
+    mask-image: linear-gradient(to right, transparent 4%, #000 34%);
+  }
+}
+@media (max-width: 1023px) {
+  .nx-globe {
+    --g: min(118vw, 760px);
+    right: -42vw;
+    top: calc(50vh - var(--g) / 2 - 4vh);
+    opacity: 0.5;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+@media (max-width: 639px) {
+  .nx-globe { --g: 132vw; right: -50vw; top: calc(14vh); opacity: 0.42; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nx-globe { animation: none; }
+}
+@media print {
+  .nx-globe { display: none !important; }
+}

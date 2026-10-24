@@ -1,0 +1,142 @@
+@model ExportSheet
+@{
+    Layout = null;
+    var back = Fmt.RoleHome(User.ToSession().Role);
+    var auto = ViewData["Auto"] as bool? == true;
+    var rowCount = Model.Rows.Count;
+    string Cell(object? v) => v switch
+    {
+        null => "—",
+        DateTime d => Fmt.Date(d),
+        decimal m => Fmt.Money(m),
+        _ => v.ToString() ?? "",
+    };
+    string Align(object? v) => v is decimal or int ? "r" : "";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@Model.Title report — Nexus Service Marketing</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef2f7; font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: #0f172a; }
+        .bar { max-width: 1120px; margin: 0 auto; padding: 18px 16px 0; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+        .bar a, .bar button { border: 1px solid #cbd5e1; background: #fff; color: #0f172a; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+        .bar button.primary { background: linear-gradient(100deg, #2563eb, #4f46e5 55%, #7c3aed); border-color: #4f46e5; color: #fff; }
+        .sheet { max-width: 1120px; margin: 16px auto 40px; background: #fff; border-radius: 18px; padding: 40px; box-shadow: 0 20px 60px -30px rgba(15, 23, 42, .35); position: relative; overflow: hidden; }
+        .sheet::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: linear-gradient(90deg, #22d3ee, #2563eb, #7c3aed); }
+        .head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+        .brand small { display: block; letter-spacing: .3em; font-size: 10px; color: #4f46e5; margin-top: 4px; }
+        h1 { margin: 0; font-size: 28px; text-align: right; letter-spacing: -.01em; }
+        .meta { text-align: right; font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.6; }
+        .sub { margin: 26px 0 0; font-size: 14px; color: #475569; }
+        .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+        .chip { border: 1px solid #e2e8f0; background: #f8faff; border-radius: 999px; padding: 4px 14px; font-size: 12px; color: #475569; }
+        .chip b { color: #0f172a; }
+        .scroll { overflow-x: auto; margin-top: 22px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        th { text-align: left; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #64748b; padding: 10px 8px; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        td { padding: 9px 8px; border-bottom: 1px solid #e8edf5; vertical-align: top; }
+        tbody tr:nth-child(even) td { background: #fafbff; }
+        td.r, th.r { text-align: right; white-space: nowrap; }
+        tfoot td { border-top: 2px solid #0f172a; border-bottom: 0; font-weight: 800; padding-top: 12px; background: #fff !important; }
+        .empty { padding: 36px 0; text-align: center; color: #64748b; }
+        .note { margin-top: 28px; font-size: 11.5px; color: #64748b; line-height: 1.7; border-top: 1px dashed #cbd5e1; padding-top: 14px; }
+        @@page { size: A4 landscape; margin: 12mm; }
+        @@media (max-width: 600px) { .sheet { padding: 24px 16px; } h1, .meta { text-align: left; } }
+        @@media print {
+            body { background: #fff; }
+            .bar { display: none; }
+            .sheet { box-shadow: none; margin: 0; max-width: none; border-radius: 0; padding: 0; }
+            .sheet::before { display: none; }
+            .scroll { overflow: visible; }
+            thead { display: table-header-group; }
+            tr { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bar">
+        <a href="@back">← Back to dashboard</a>
+        <button class="primary" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <div class="sheet">
+        <div class="head">
+            <div class="brand">
+                <img src="~/images/brand/logo.png" alt="Nexus Service Marketing" style="height:72px;width:auto;display:block;filter:drop-shadow(0 0 1px rgba(30,58,138,.9))" />
+                <small>SERVICE MARKETING SYSTEM</small>
+            </div>
+            <div>
+                <h1>@Model.Title.ToUpperInvariant()</h1>
+                <div class="meta">
+                    Generated @Fmt.Stamp(DateTime.UtcNow)<br />
+                    Prepared by <strong>@Model.PreparedBy</strong><br />
+                    @Model.Scope
+                </div>
+            </div>
+        </div>
+
+        <p class="sub">@Model.Subtitle</p>
+        <div class="chips">
+            <span class="chip">Records <b>@Fmt.Num(rowCount)</b></span>
+            @if (!string.IsNullOrEmpty(Model.Filter)) { <span class="chip">Status filter <b>@Model.Filter</b></span> }
+        </div>
+
+        <div class="scroll">
+            <table>
+                <thead>
+                    <tr>
+                        @for (var c = 0; c < Model.Headers.Length; c++)
+                        {
+                            <th class="@(rowCount > 0 ? Align(Model.Rows[0][c]) : "")">@Model.Headers[c]</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (rowCount == 0)
+                    {
+                        <tr><td colspan="@Model.Headers.Length" class="empty">Nothing to show for this view yet.</td></tr>
+                    }
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            @for (var c = 0; c < row.Length; c++)
+                            {
+                                <td class="@Align(row[c])">@Cell(row[c])</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.SumCols.Length > 0 && rowCount > 0)
+                {
+                    <tfoot>
+                        <tr>
+                            @for (var c = 0; c < Model.Headers.Length; c++)
+                            {
+                                if (c == 0) { <td>Total</td> }
+                                else if (Model.SumCols.Contains(c)) { <td class="r">@Fmt.Money(Model.Rows.Sum(r => r[c] is decimal m ? m : 0m))</td> }
+                                else { <td></td> }
+                            }
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+
+        <div class="note">
+            This report was generated from live Nexus data and lists @Fmt.Num(rowCount) record@(rowCount == 1 ? "" : "s").
+            Amounts include 12.24% service tax where an invoice is shown. Use <strong>Print / Save as PDF</strong> and choose
+            “Save as PDF” as the destination to keep a copy.
+        </div>
+    </div>
+
+    @if (auto)
+    {
+        <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 500); });</script>
+    }
+</body>
+</html>

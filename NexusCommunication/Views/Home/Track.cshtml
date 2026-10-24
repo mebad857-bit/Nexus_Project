@@ -1,0 +1,347 @@
+@model TrackVm
+@{
+    ViewData["Title"] = "Track & trace — Nexus Communication System";
+    var o = Model.Order;
+    var conn = Model.Connection;
+    // the public sees masked personal data; signed-in staff see everything
+    string Nm(string? n) => Model.IsStaff ? (n ?? "—") : Fmt.MaskName(n);
+    string Ph(string? p) => Model.IsStaff ? (p ?? "—") : Fmt.MaskPhone(p);
+}
+<main class="relative min-h-screen">
+    @await Html.PartialAsync("_Nav")
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-[34rem] overflow-hidden">
+        <img src="@Ui.Asset("/images/hero/track-background")" alt="" aria-hidden="true" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover object-center opacity-60" />
+        <div class="absolute inset-0 bg-gradient-to-b from-ink-950/55 via-ink-950/35 to-ink-950"></div>
+        <div class="grid-bg absolute inset-0"></div>
+        <div class="absolute left-1/4 top-[-8rem] h-80 w-[36rem] rounded-full bg-violet-600/10 blur-[120px]"></div>
+        <div class="absolute right-1/4 top-[-6rem] h-80 w-[36rem] rounded-full bg-cyan-500/10 blur-[120px]"></div>
+    </div>
+
+    <section class="relative mx-auto max-w-7xl px-5 pb-28 pt-36 lg:px-8">
+        <div class="mx-auto max-w-2xl text-center">
+            <p class="flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-cyan-400">
+                <span class="inline-block h-px w-8 bg-cyan-400/70"></span>
+                Track &amp; trace
+                <span class="inline-block h-px w-8 bg-cyan-400/70"></span>
+            </p>
+            <h1 class="mt-4 font-display text-4xl font-bold tracking-tight text-slate-100 sm:text-6xl">
+                Where is my <span class="text-gradient">connection?</span>
+            </h1>
+            <p class="mx-auto mt-5 max-w-lg text-slate-400">
+                Enter your 11-digit order ID or 16-digit account ID — or open the advanced console to
+                search by name, contact number, connection type or application window.
+            </p>
+        </div>
+
+        <form action="/track" method="get" class="glass mx-auto mt-12 flex max-w-2xl items-center gap-2 rounded-2xl p-2 pl-5">
+            <i data-lucide="scan-search" class="h-5 w-5 shrink-0 text-cyan-300"></i>
+            <input name="q" value="@Model.Q" placeholder="B0000000001  ·  B101000000000001"
+                   class="w-full bg-transparent font-mono text-sm tracking-wider text-slate-100 outline-none placeholder:font-body placeholder:tracking-normal placeholder:text-slate-500" />
+            <button type="submit" class="btn-glow flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+                <i data-lucide="search" class="h-4 w-4"></i>
+                Trace
+            </button>
+        </form>
+
+        <div class="mt-5 text-center">
+            <button type="button" id="adv-toggle" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-cyan-300">
+                <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
+                <span id="adv-label">@(Model.Advanced ? "Hide advanced search" : "Open advanced search")</span>
+            </button>
+        </div>
+
+        <form id="adv-form"
+              action="/track"
+              method="get"
+              class="glass mx-auto mt-6 max-w-3xl overflow-hidden rounded-3xl @(Model.Advanced ? "" : "hidden")">
+            <input type="hidden" name="adv" value="1" />
+            <div class="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                <input name="name" value="@Context.Request.Query["name"]" placeholder="Name on the order / connection" class="field" />
+                <input name="phone" value="@Context.Request.Query["phone"]" placeholder="Contact number" class="field" />
+                <select name="type" class="field">
+                    <option value="">Any connection type</option>
+                    @foreach (var t in ConnTypes.All)
+                    {
+                        <option value="@t" selected="@(Context.Request.Query["type"] == t)">@Fmt.TypeLabel(t)</option>
+                    }
+                </select>
+                <div class="relative">
+                    <i data-lucide="calendar-days" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
+                    <input name="from" type="date" value="@Context.Request.Query["from"]" class="field pl-9" aria-label="Applied from" />
+                </div>
+                <div class="relative">
+                    <i data-lucide="calendar-days" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
+                    <input name="to" type="date" value="@Context.Request.Query["to"]" class="field pl-9" aria-label="Applied until" />
+                </div>
+                <button class="btn-glow flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+                    <i data-lucide="search" class="h-4 w-4"></i> Run search
+                </button>
+            </div>
+        </form>
+
+        <!-- results -->
+        <div class="mx-auto mt-12 max-w-4xl">
+            @if (Model.Kind == "error")
+            {
+                <div class="glass rounded-2xl border-rose-400/30 p-6 text-center text-sm text-rose-300">@Model.Error</div>
+            }
+            else if (Model.Kind == "order" && o != null)
+            {
+                var steps = new[]
+                {
+                    (Icon: "clipboard-list", Label: "Order placed", Active: true, Detail: Fmt.Stamp(o.CreatedAt)),
+                    (Icon: "radar", Label: "Feasibility survey", Active: o.Status != OrderStatus.Pending,
+                        Detail: o.Status == OrderStatus.Pending ? "Technical desk visit pending" : o.Status == OrderStatus.Infeasible ? "Area not feasible" : "Area cleared for service"),
+                    (Icon: "wrench", Label: "Provisioning", Active: o.Status == OrderStatus.Connected,
+                        Detail: o.Status == OrderStatus.Connected ? "Equipment installed" : o.Status == OrderStatus.Feasible ? "Awaiting installation" : "—"),
+                    (Icon: "circle-check", Label: "Connection live", Active: o.Status == OrderStatus.Connected, Detail: conn != null ? conn.AccountId : "—"),
+                };
+                <div class="grid gap-5 lg:grid-cols-5">
+                    <div class="glass-strong rounded-3xl p-7 lg:col-span-2">
+                        <div class="flex items-center justify-between">
+                            @Ui.TypeChip(o.ConnectionType)
+                            @Ui.Pill(o.Status, Fmt.OrderStatus(o.Status))
+                        </div>
+                        <h3 class="mt-6 font-display text-sm font-bold uppercase tracking-[0.2em] text-slate-500">Order journey</h3>
+                        <div class="mt-6 space-y-0">
+                            @for (var i = 0; i < steps.Length; i++)
+                            {
+                                var s = steps[i];
+                                <div class="relative flex gap-4 pb-7 last:pb-0">
+                                    @if (i < steps.Length - 1)
+                                    {
+                                        <span class="absolute left-[19px] top-10 h-full w-px @(s.Active ? "bg-cyan-400/40" : "bg-slate-800")"></span>
+                                    }
+                                    <span class="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1 @(s.Active ? "bg-cyan-400/10 ring-cyan-400/40" : "bg-ink-800 ring-slate-700/70")">
+                                        <i data-lucide="@s.Icon" class="h-[18px] w-[18px] @(s.Active ? "text-cyan-300" : "text-slate-600")"></i>
+                                    </span>
+                                    <div>
+                                        <p class="text-sm font-semibold @(s.Active ? "text-slate-100" : "text-slate-500")">@s.Label</p>
+                                        <p class="mt-0.5 text-xs text-slate-500">@s.Detail</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-3xl p-7 lg:col-span-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Order ID</p>
+                        <div class="mt-2 flex flex-wrap items-center gap-3">
+                            <p class="font-mono text-3xl font-bold tracking-wider text-gradient">@o.OrderNo</p>
+                            <button type="button" data-copy="@o.OrderNo" class="rounded-lg border border-slate-700/70 px-2.5 py-1 text-[11px] font-semibold text-slate-400 transition hover:border-cyan-400/50 hover:text-cyan-300">Copy</button>
+                        </div>
+
+                        <div class="mt-7 grid gap-4 sm:grid-cols-2">
+                            @{
+                                void Info(string label, string? value)
+                                {
+                                    <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-3.5">
+                                        <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">@label</p>
+                                        <p class="mt-1 text-sm font-semibold text-slate-200">@(value ?? "—")</p>
+                                    </div>
+                                }
+                            }
+                            @{ Info("Ordered by", Nm(o.Customer?.Name)); }
+                            @{ Info("Contact", Ph(o.Customer?.Phone)); }
+                            @{ Info("Plan selected", o.Plan == null ? "—" : o.Plan.Category + " · " + o.Plan.Name); }
+                            @{ Info("Placed on", Fmt.Stamp(o.CreatedAt)); }
+                            @if (o.Corporate)
+                            {
+                                Info("Corporate bulk", $"{o.Quantity} lines · {o.DiscountPct}% rebate");
+                            }
+                            @if (o.Plan != null)
+                            {
+                                Info("Plan charge", $"{Fmt.Money(o.Plan.Price)} + {Fmt.Money(o.Plan.Deposit)} deposit");
+                            }
+                        </div>
+
+                        @if (o.Status == OrderStatus.Infeasible)
+                        {
+                            <div class="mt-6 flex items-start gap-3 rounded-2xl border border-rose-400/30 bg-rose-400/5 p-4 text-sm text-rose-200">
+                                <i data-lucide="circle-x" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                                @(o.Remark ?? "The surveyed address falls outside the serviceable distance for this connection type.")
+                            </div>
+                        }
+                        @if (o.Status == OrderStatus.Feasible)
+                        {
+                            <div class="mt-6 flex items-start gap-3 rounded-2xl border border-sky-400/30 bg-sky-400/5 p-4 text-sm text-sky-200">
+                                <i data-lucide="locate" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                                @(o.Remark ?? "Feasibility confirmed — the installation team will reach out within 48 hours.")
+                            </div>
+                        }
+                        @if (conn != null)
+                        {
+                            <div class="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/5 p-4">
+                                <p class="text-xs uppercase tracking-[0.2em] text-emerald-300/80">Account ID assigned</p>
+                                <p class="mt-1 font-mono text-xl font-bold tracking-wider text-emerald-300">@conn.AccountId</p>
+                                <p class="mt-1 text-xs text-slate-400">Connected on @Fmt.Date(conn.ActivatedAt)</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (Model.Kind == "connection" && conn != null)
+            {
+                var due = Model.Due;
+                <div class="space-y-5">
+                    <div class="glass-strong relative overflow-hidden rounded-3xl p-8">
+                        <div class="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl"></div>
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Account ID</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-3">
+                                    <p class="font-mono text-2xl font-bold tracking-wider text-gradient sm:text-4xl">@conn.AccountId</p>
+                                    <button type="button" data-copy="@conn.AccountId" class="rounded-lg border border-slate-700/70 px-2.5 py-1 text-[11px] font-semibold text-slate-400 transition hover:border-cyan-400/50 hover:text-cyan-300">Copy</button>
+                                </div>
+                            </div>
+                            @Ui.Pill(conn.Status, Fmt.ConnStatus(conn.Status))
+                        </div>
+                        <div class="mt-7 grid gap-4 sm:grid-cols-4">
+                            @{
+                                void Info2(string label, string? value)
+                                {
+                                    <div class="rounded-xl border border-slate-800 bg-ink-900/60 p-3.5">
+                                        <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">@label</p>
+                                        <p class="mt-1 text-sm font-semibold text-slate-200">@(value ?? "—")</p>
+                                    </div>
+                                }
+                            }
+                            @{ Info2("Subscriber", Nm(conn.Customer?.Name)); }
+                            @{ Info2("Plan", (conn.Plan?.Category ?? "") + " · " + (conn.Plan?.Name ?? "")); }
+                            @{ Info2("City", $"{conn.City} ({conn.CityCode})"); }
+                            @{ Info2("On network since", Fmt.Date(conn.ActivatedAt)); }
+                        </div>
+                    </div>
+
+                    <div class="grid gap-5 lg:grid-cols-2">
+                        <div class="rounded-3xl border p-7 @(due > 0 ? "border-rose-400/30 bg-rose-400/5" : "border-emerald-400/30 bg-emerald-400/5")">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="coins" class="h-5 w-5 @(due > 0 ? "text-rose-300" : "text-emerald-300")"></i>
+                                <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">@(due > 0 ? "Outstanding dues" : "Account standing")</p>
+                            </div>
+                            <p class="mt-4 font-display text-4xl font-bold @(due > 0 ? "text-rose-300" : "text-emerald-300")">@(due > 0 ? Fmt.Money(due) : "All clear")</p>
+                            <p class="mt-2 text-xs text-slate-500">
+                                @(due > 0 ? $"{Model.OpenBills} open invoice(s) · payable at any retail counter or the city office" : "No pending dues on this connection.")
+                            </p>
+                            @if (Model.LastPayment != null)
+                            {
+                                <p class="mt-3 text-xs text-slate-400">
+                                    Last payment @Fmt.Money(Model.LastPayment.Amount) via @Model.LastPayment.Method on @Fmt.Date(Model.LastPayment.CreatedAt)
+                                </p>
+                            }
+                        </div>
+
+                        <div class="glass rounded-3xl p-7">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="receipt" class="h-5 w-5 text-cyan-300"></i>
+                                <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Recent invoices</p>
+                            </div>
+                            <div class="mt-4 space-y-2.5">
+                                @if (Model.RecentBills.Count == 0)
+                                {
+                                    <p class="text-sm text-slate-500">No invoices generated yet.</p>
+                                }
+                                @foreach (var b in Model.RecentBills)
+                                {
+                                    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-ink-900/60 px-4 py-3">
+                                        <div>
+                                            <p class="font-mono text-xs text-slate-400">@b.BillNo</p>
+                                            <p class="text-sm font-semibold text-slate-200">@b.Period</p>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <span class="font-display font-bold text-slate-100">@Fmt.Money(b.Total)</span>
+                                            @Ui.Pill(b.Status, Fmt.BillStatus(b.Status))
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (Model.Kind == "list")
+            {
+                if (Model.Results.Count == 0 && Model.ConnResults.Count == 0)
+                {
+                    @Ui.Empty("No applications or connections match those filters", "Widen the date window or remove a field and run the search again.")
+                }
+                else
+                {
+                    <p class="mb-4 text-sm text-slate-500">
+                        <span class="font-semibold text-slate-200">@Model.Results.Count</span> application(s) and
+                        <span class="font-semibold text-slate-200">@Model.ConnResults.Count</span> connection(s) found — select one for the full trace.
+                        @if (!Model.IsStaff) { <span class="text-slate-600">Personal details are partly hidden on the public search.</span> }
+                    </p>
+
+                    @if (Model.Results.Count > 0)
+                    {
+                        <h3 class="mb-3 mt-6 text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Applications (order ids)</h3>
+                        <div class="space-y-3">
+                            @foreach (var r in Model.Results)
+                            {
+                                <a href="/track?q=@r.OrderNo" class="glass card-hover group flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4 text-left">
+                                    <div class="flex items-center gap-4">
+                                        @Ui.TypeChip(r.ConnectionType)
+                                        <div>
+                                            <p class="font-mono text-sm font-bold tracking-wider text-slate-100">@r.OrderNo</p>
+                                            <p class="text-xs text-slate-500">@Nm(r.Customer?.Name) · @Fmt.Date(r.CreatedAt)</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        @Ui.Pill(r.Status, Fmt.OrderStatus(r.Status))
+                                        <i data-lucide="arrow-right" class="h-4 w-4 text-slate-600 transition group-hover:translate-x-1 group-hover:text-cyan-300"></i>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.ConnResults.Count > 0)
+                    {
+                        <h3 class="mb-3 mt-10 text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Connections (account ids)</h3>
+                        <div class="space-y-3">
+                            @foreach (var c in Model.ConnResults)
+                            {
+                                <a href="/track?q=@c.AccountId" class="glass card-hover group flex w-full flex-wrap items-center justify-between gap-3 rounded-2xl px-5 py-4 text-left">
+                                    <div class="flex items-center gap-4">
+                                        @Ui.TypeChip(c.ConnectionType)
+                                        <div>
+                                            <p class="font-mono text-sm font-bold tracking-wider text-slate-100">@c.AccountId</p>
+                                            <p class="text-xs text-slate-500">@Nm(c.Customer?.Name) · live since @Fmt.Date(c.ActivatedAt)</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        @Ui.Pill(c.Status, Fmt.ConnStatus(c.Status))
+                                        <i data-lucide="arrow-right" class="h-4 w-4 text-slate-600 transition group-hover:translate-x-1 group-hover:text-cyan-300"></i>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                }
+            }
+            else
+            {
+                @Ui.Empty("Nothing traced yet", "Try the sample order B0000000001 or account B101000000000001 to see the trace format.")
+            }
+        </div>
+    </section>
+
+    @await Html.PartialAsync("_ImageTriptych", (Ui.Asset("/images/hero/track-order-desk"), "Order desk", Ui.Asset("/images/hero/track-field-visit"), "Field survey visit", Ui.Asset("/images/hero/track-activation"), "Line activation"))
+
+    @await Html.PartialAsync("_Footer")
+</main>
+
+@section Scripts {
+    <script>
+        (function () {
+            var btn = document.getElementById('adv-toggle');
+            var form = document.getElementById('adv-form');
+            var label = document.getElementById('adv-label');
+            btn.addEventListener('click', function () {
+                form.hidden = !form.hidden;
+                label.textContent = form.hidden ? 'Open advanced search' : 'Hide advanced search';
+            });
+        })();
+    </script>
+}

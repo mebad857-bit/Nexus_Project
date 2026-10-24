@@ -1,0 +1,82 @@
+@model AccountVm
+@{
+    var roleLabels = new Dictionary<string, string>
+    {
+        ["admin"] = "Admin Desk", ["accounts"] = "Accounts Desk", ["technical"] = "Technical Desk", ["retail"] = "Retail Outlet Desk", ["customer"] = "Customer Portal",
+    };
+    ViewData["Title"] = "My account — Nexus";
+    ViewData["Role"] = Model.Role;
+    ViewData["RoleLabel"] = roleLabels.TryGetValue(Model.Role, out var rl) ? rl : "Account";
+    ViewData["ScopeName"] = Model.Scope;
+    Layout = "_DashboardLayout";
+    var home = Fmt.RoleHome(Model.Role);
+    var heroCaps = Model.Role switch
+    {
+        "accounts" => ("Billing & invoicing", "Payment collection", "Revenue analytics"),
+        "technical" => ("Field engineering", "Provisioning rack", "Feasibility survey"),
+        "retail" => ("Outlet counter", "Customer service", "Order desk"),
+        "customer" => ("Your connected home", "Support & service", "Bills & payments"),
+        _ => ("Network command centre", "Equipment & stock rooms", "Retail outlet network"),
+    };
+}
+
+<div class="mx-auto max-w-4xl">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="font-display text-3xl font-bold tracking-tight text-slate-100">My account</h1>
+            <p class="mt-1.5 text-sm text-slate-500">Your profile and sign-in security.</p>
+        </div>
+        <a href="@home" class="flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i> Back to my console
+        </a>
+    </div>
+
+    @await Html.PartialAsync("_AccountTabs", "profile")
+
+    @await Html.PartialAsync("_DeskHero", (Model.Role, heroCaps.Item1, heroCaps.Item2, heroCaps.Item3))
+
+    <div class="grid gap-6 lg:grid-cols-5">
+        <div class="glass-strong rounded-3xl p-7 lg:col-span-2">
+            @if (!string.IsNullOrEmpty(Model.ImageResource))
+            {
+                @await Html.PartialAsync("_ImageManager", (Model.ImageResource!, Model.ImageRecordId, Model.ImageUrl, Model.Name, "Profile photo"))
+            }
+            else
+            {
+                <div class="flex items-center gap-4">
+                    <span class="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-cyan-500/30 to-violet-500/30 font-display text-xl font-bold text-white ring-1 ring-cyan-400/30">@Fmt.Initials(Model.Name)</span>
+                </div>
+            }
+            <div class="mt-5 min-w-0">
+                <p class="truncate font-display text-lg font-bold text-slate-100">@Model.Name</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">@ViewData["RoleLabel"]</p>
+            </div>
+            <dl class="mt-6 space-y-4 text-sm">
+                <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Username</dt><dd class="mt-1 font-mono text-slate-200">@Model.Username</dd></div>
+                @if (!string.IsNullOrEmpty(Model.EmpCode)) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Employee code</dt><dd class="mt-1 font-mono text-slate-200">@Model.EmpCode</dd></div> }
+                @if (!string.IsNullOrEmpty(Model.Designation)) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Designation</dt><dd class="mt-1 text-slate-200">@Model.Designation</dd></div> }
+                @if (!string.IsNullOrEmpty(Model.Scope)) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Location</dt><dd class="mt-1 text-slate-200">@Model.Scope</dd></div> }
+                @if (!string.IsNullOrEmpty(Model.Phone)) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Phone</dt><dd class="mt-1 text-slate-200">@Model.Phone</dd></div> }
+                @if (!string.IsNullOrEmpty(Model.Email)) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">E-mail</dt><dd class="mt-1 break-all text-slate-200">@Model.Email</dd></div> }
+                @if (Model.Since != null) { <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Member since</dt><dd class="mt-1 text-slate-200">@Fmt.Date(Model.Since)</dd></div> }
+            </dl>
+        </div>
+
+        <div class="glass-strong rounded-3xl p-7 lg:col-span-3">
+            <h2 class="flex items-center gap-2 font-display text-lg font-bold text-slate-100"><i data-lucide="shield-check" class="h-5 w-5 text-cyan-300"></i> Sign-in security</h2>
+            <p class="mt-1 text-sm text-slate-500">Keep your account safe with a password only you know.</p>
+
+            <dl class="mt-6 divide-y divide-slate-800 text-sm">
+                <div class="flex items-center justify-between gap-4 py-3.5">
+                    <div><dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Password</dt><dd class="mt-1 font-mono tracking-widest text-slate-200">••••••••••</dd></div>
+                    <a href="/account/security" class="flex shrink-0 items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-300"><i data-lucide="key-round" class="h-4 w-4"></i> Change password</a>
+                </div>
+                <div class="py-3.5 text-slate-400">
+                    <dt class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Forgot it one day?</dt>
+                    <dd class="mt-1">Use <span class="font-semibold text-slate-200">Forgot password?</span> on the sign-in page — you can reset it with your username or e-mail.</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>
+

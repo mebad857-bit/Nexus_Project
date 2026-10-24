@@ -1,0 +1,22 @@
+@* Three-picture strip shown at the top of every dashboard: images/dashboard/{role}-1, -2, -3 (any of .png .jpg .jpeg .webp) *@
+@model (string Role, string Cap1, string Cap2, string Cap3)
+@{
+    var items = new[] { (Model.Cap1, Ui.Asset($"/images/dashboard/{Model.Role}-1")), (Model.Cap2, Ui.Asset($"/images/dashboard/{Model.Role}-2")), (Model.Cap3, Ui.Asset($"/images/dashboard/{Model.Role}-3")) };
+}
+<div class="mb-8 grid gap-4 sm:grid-cols-3">
+    <figure class="relative aspect-video overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10 sm:col-span-2">
+        <img src="@items[0].Item2" alt="@items[0].Item1" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+        <div class="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-ink-950/10 to-transparent"></div>
+        <figcaption class="absolute bottom-4 left-4 rounded-full bg-ink-950/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-100 backdrop-blur">@items[0].Item1</figcaption>
+    </figure>
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-1 sm:grid-rows-2">
+        @foreach (var it in items.Skip(1))
+        {
+            <figure class="relative aspect-video overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10 sm:aspect-auto">
+                <img src="@it.Item2" alt="@it.Item1" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-transparent to-transparent"></div>
+                <figcaption class="absolute bottom-3 left-3 rounded-full bg-ink-950/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-100 backdrop-blur">@it.Item1</figcaption>
+            </figure>
+        }
+    </div>
+</div>

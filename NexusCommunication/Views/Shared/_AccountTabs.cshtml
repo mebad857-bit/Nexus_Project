@@ -1,0 +1,11 @@
+@* Profile | Security switch shown at the top of both account pages. Model = "profile" or "security". *@
+@model string
+@{
+    string Cls(string tab) => Model == tab
+        ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300"
+        : "border-slate-700 text-slate-300 hover:border-cyan-400/50 hover:text-cyan-300";
+}
+<nav class="mb-6 flex flex-wrap gap-2" aria-label="Account sections">
+    <a href="/account" aria-current="@(Model == "profile" ? "page" : null)" class="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition @Cls("profile")"><i data-lucide="user-round" class="h-4 w-4"></i> Profile</a>
+    <a href="/account/security" aria-current="@(Model == "security" ? "page" : null)" class="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition @Cls("security")"><i data-lucide="shield-check" class="h-4 w-4"></i> Security</a>
+</nav>

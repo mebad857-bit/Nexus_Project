@@ -1,0 +1,79 @@
+@model OnlinePayment
+@{
+    Layout = null;
+    var b = Model.Bill;
+    var c = b.Connection;
+    var cust = Model.Customer;
+    var settled = b.Status == BillStatus.Paid;
+    var back = User.ToSession().Role switch { "customer" => "/portal#bills", "accounts" => "/accounts#receipts", "admin" => "/admin#billing", _ => "/" };
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Receipt @Model.TransactionId — Nexus Service Marketing</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef2f7; font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: #0f172a; }
+        .bar { max-width: 720px; margin: 0 auto; padding: 18px 16px 0; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+        .bar a, .bar button { border: 1px solid #cbd5e1; background: #fff; color: #0f172a; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+        .bar button.primary { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+        .sheet { max-width: 720px; margin: 16px auto 40px; background: #fff; border-radius: 18px; padding: 44px; box-shadow: 0 20px 60px -30px rgba(15, 23, 42, .35); position: relative; overflow: hidden; }
+        .sheet::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: linear-gradient(90deg, #22d3ee, #2563eb, #7c3aed); }
+        .demo { margin: 0 0 26px; border: 1.5px dashed #d97706; background: #fffbeb; color: #92400e; border-radius: 12px; padding: 10px 14px; font-size: 13px; font-weight: 700; text-align: center; letter-spacing: .04em; }
+        .head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+        h1 { margin: 0; font-size: 28px; text-align: right; letter-spacing: -.01em; }
+        .meta { text-align: right; font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.6; }
+        .stamp { display: inline-block; border: 2px solid #059669; color: #059669; padding: 4px 14px; border-radius: 8px; font-weight: 800; letter-spacing: .14em; font-size: 13px; text-transform: uppercase; transform: rotate(-3deg); margin-top: 10px; }
+        .amount { margin: 30px 0 6px; text-align: center; }
+        .amount small { display: block; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #64748b; }
+        .amount strong { display: block; margin-top: 6px; font-size: 44px; letter-spacing: -.02em; color: #059669; }
+        .txn { margin: 0 auto 28px; width: fit-content; max-width: 100%; border-radius: 10px; background: #f1f5ff; padding: 8px 16px; font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: .06em; color: #3730a3; overflow-wrap: anywhere; }
+        .rows { border-top: 1px solid #e2e8f0; }
+        .rows div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        .rows span:first-child { color: #64748b; }
+        .rows span:last-child { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+        .note { margin-top: 28px; font-size: 12px; color: #64748b; line-height: 1.7; border-top: 1px dashed #cbd5e1; padding-top: 16px; }
+        @@media (max-width: 600px) { .sheet { padding: 26px 18px; } h1, .meta { text-align: left; } }
+        @@media print { body { background: #fff; } .bar { display: none; } .sheet { box-shadow: none; margin: 0; max-width: none; border-radius: 0; } }
+    </style>
+</head>
+<body>
+    <div class="bar">
+        <a href="@back">← Back</a>
+        <button class="primary" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <div class="sheet">
+        <p class="demo">DEMO PAYMENT — no real money was charged and no card or wallet details were stored.</p>
+        <div class="head">
+            <img src="~/images/brand/logo.png" alt="Nexus Service Marketing" style="height:80px;width:auto;display:block" />
+            <div>
+                <h1>PAYMENT RECEIPT</h1>
+                <div class="meta">Paid @Fmt.Stamp(Model.CreatedAt)<br />Bill @b.BillNo · @b.Period</div>
+                <div style="text-align:right"><span class="stamp">Paid</span></div>
+            </div>
+        </div>
+
+        <div class="amount"><small>Amount paid</small><strong>@Fmt.Money(Model.Amount)</strong></div>
+        <div class="txn">@Model.TransactionId</div>
+
+        <div class="rows">
+            <div><span>Customer</span><span>@cust.Name</span></div>
+            <div><span>Account</span><span style="font-family:ui-monospace,monospace">@c.AccountId</span></div>
+            <div><span>Plan</span><span>@(c.Plan == null ? "—" : c.Plan.Category + " · " + c.Plan.Name)</span></div>
+            <div><span>Invoice</span><span>@b.BillNo</span></div>
+            <div><span>Payment method</span><span>@OnlineMethods.Label(Model.Method) (demo)</span></div>
+            <div><span>Bill total</span><span>@Fmt.Money(b.Total)</span></div>
+            <div><span>Invoice status now</span><span>@Fmt.BillStatus(b.Status)@(settled ? "" : " · balance " + Fmt.Money(b.DueAmount))</span></div>
+        </div>
+
+        <p class="note">
+            This receipt was generated by the demonstration payment simulator of the Nexus Service Marketing System. It is not proof of a real payment.
+            Open the invoice from your portal to see the full payment history of this bill.
+        </p>
+    </div>
+</body>
+</html>

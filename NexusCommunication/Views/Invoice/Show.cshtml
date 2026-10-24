@@ -1,0 +1,121 @@
+@model Bill
+@{
+    Layout = null;
+    var c = Model.Connection;
+    var cust = c.Customer;
+    var paid = Model.Status == BillStatus.Paid;
+    var statusColor = paid ? "#059669" : Model.Status == BillStatus.Partial ? "#d97706" : "#dc2626";
+    var overdue = !paid && Model.DueDate != null && Model.DueDate < DateTime.UtcNow;
+    var back = User.ToSession().Role switch { "customer" => "/portal#bills", "retail" => "/retail#collections", "accounts" => "/accounts#ledger", "admin" => "/admin#billing", _ => "/" };
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Invoice @Model.BillNo — Nexus Service Marketing</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef2f7; font-family: "Inter", "Segoe UI", system-ui, sans-serif; color: #0f172a; }
+        .bar { max-width: 820px; margin: 0 auto; padding: 18px 16px 0; display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+        .bar a, .bar button { border: 1px solid #cbd5e1; background: #fff; color: #0f172a; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; }
+        .bar button.primary { background: #0e7490; border-color: #0e7490; color: #fff; }
+        .sheet { max-width: 820px; margin: 16px auto 40px; background: #fff; border-radius: 18px; padding: 44px; box-shadow: 0 20px 60px -30px rgba(15, 23, 42, .35); position: relative; overflow: hidden; }
+        .sheet::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 8px; background: linear-gradient(90deg, #22d3ee, #2563eb, #7c3aed); }
+        .head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+        .brand { font-weight: 800; letter-spacing: .28em; font-size: 20px; }
+        .brand small { display: block; letter-spacing: .3em; font-size: 10px; color: #0e7490; margin-top: 4px; }
+        h1 { margin: 0; font-size: 30px; text-align: right; letter-spacing: -.01em; }
+        .meta { text-align: right; font-size: 13px; color: #475569; margin-top: 6px; line-height: 1.6; }
+        .stamp { display: inline-block; border: 2px solid @statusColor; color: @statusColor; padding: 4px 14px; border-radius: 8px; font-weight: 800; letter-spacing: .14em; font-size: 13px; text-transform: uppercase; transform: rotate(-3deg); margin-top: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 34px; }
+        .box h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #64748b; }
+        .box p { margin: 2px 0; font-size: 14px; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin-top: 32px; font-size: 14px; }
+        th { text-align: left; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #64748b; padding: 10px 0; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+        td.r, th.r { text-align: right; }
+        .totals { margin-left: auto; width: 320px; margin-top: 18px; font-size: 14px; }
+        .totals div { display: flex; justify-content: space-between; padding: 6px 0; }
+        .totals .grand { border-top: 2px solid #0f172a; margin-top: 6px; padding-top: 12px; font-size: 18px; font-weight: 800; }
+        .due { color: #dc2626; font-weight: 800; }
+        .note { margin-top: 34px; font-size: 12px; color: #64748b; line-height: 1.7; border-top: 1px dashed #cbd5e1; padding-top: 16px; }
+        .pay td { font-size: 13px; padding: 9px 0; }
+        @@media (max-width: 600px) { .sheet { padding: 26px 18px; } .grid { grid-template-columns: 1fr; } h1, .meta { text-align: left; } }
+        @@media print { body { background: #fff; } .bar { display: none; } .sheet { box-shadow: none; margin: 0; max-width: none; border-radius: 0; } }
+    </style>
+</head>
+<body>
+    <div class="bar">
+        <a href="@back">← Back</a>
+        <button class="primary" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <div class="sheet">
+        <div class="head">
+            <div class="brand"><img src="~/images/brand/logo.png" alt="Nexus Service Marketing" style="height:88px;width:auto;display:block" /><small>SERVICE MARKETING SYSTEM</small></div>
+            <div>
+                <h1>INVOICE</h1>
+                <div class="meta">
+                    <strong>@Model.BillNo</strong><br />
+                    Issued @Fmt.Date(Model.CreatedAt)<br />
+                    Due by <span class="@(overdue ? "due" : "")">@Fmt.Date(Model.DueDate)@(overdue ? " · OVERDUE" : "")</span>
+                </div>
+                <div style="text-align:right"><span class="stamp">@Fmt.BillStatus(Model.Status)</span></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="box">
+                <h3>Billed to</h3>
+                <p><strong>@cust.Name</strong></p>
+                <p>@cust.Address</p>
+                <p>@cust.City</p>
+                <p>@cust.Phone@(string.IsNullOrEmpty(cust.Email) ? "" : " · " + cust.Email)</p>
+            </div>
+            <div class="box">
+                <h3>Account</h3>
+                <p><strong style="font-family:ui-monospace,monospace;letter-spacing:.06em">@c.AccountId</strong></p>
+                <p>@Fmt.TypeLabel(c.ConnectionType) connection · @Fmt.ConnStatus(c.Status)</p>
+                <p>@(c.Plan == null ? "—" : c.Plan.Category + " · " + c.Plan.Name)</p>
+                <p>Billing period: @Model.Period</p>
+            </div>
+        </div>
+
+        <table>
+            <thead><tr><th>Description</th><th class="r">Amount</th></tr></thead>
+            <tbody>
+                <tr><td>Rental / charges — @Model.Period</td><td class="r">@Fmt.Money(Model.Rental)</td></tr>
+                @if (Model.Usage > 0) { <tr><td>Usage &amp; other charges</td><td class="r">@Fmt.Money(Model.Usage)</td></tr> }
+                @if (Model.Discount > 0) { <tr><td>Discount / scheme rebate</td><td class="r">− @Fmt.Money(Model.Discount)</td></tr> }
+                <tr><td>Service tax (@Fmt.ServiceTaxRate%)</td><td class="r">@Fmt.Money(Model.Tax)</td></tr>
+            </tbody>
+        </table>
+
+        <div class="totals">
+            <div class="grand"><span>Total</span><span>@Fmt.Money(Model.Total)</span></div>
+            <div><span>Paid to date</span><span>@Fmt.Money(Model.PaidAmount)</span></div>
+            <div><span><strong>Balance due</strong></span><span class="@(Model.DueAmount > 0 ? "due" : "")"><strong>@Fmt.Money(Model.DueAmount)</strong></span></div>
+        </div>
+
+        @if (Model.Payments.Count > 0)
+        {
+            <table class="pay">
+                <thead><tr><th>Payments received</th><th>Method</th><th>Reference</th><th class="r">Amount</th></tr></thead>
+                <tbody>
+                    @foreach (var p in Model.Payments.OrderBy(x => x.CreatedAt))
+                    {
+                        <tr><td>@Fmt.Date(p.CreatedAt) · @(p.Channel == "retail" ? "Retail counter" : p.Channel == "online" ? "Online (demo)" : "Accounts office")</td><td style="text-transform:capitalize">@p.Method</td><td style="font-family:ui-monospace,monospace">@if (p.Channel == "online" && !string.IsNullOrEmpty(p.Reference)) { <a href="/receipt/@p.Reference" target="_blank" style="color:#4f46e5">@p.Reference</a> } else { @p.Reference }</td><td class="r">@Fmt.Money(p.Amount)</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <p class="note">
+            This is a computer-generated postpaid invoice issued by the Nexus accounts department@(string.IsNullOrEmpty(Model.GeneratedBy) ? "" : " (" + Model.GeneratedBy + ")").
+            Payments can be made at any Nexus retail outlet or at the accounts office. The refundable security deposit is returned on withdrawal or cancellation of the connection.
+        </p>
+    </div>
+</body>
+</html>

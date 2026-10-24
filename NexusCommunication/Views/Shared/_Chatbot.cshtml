@@ -1,0 +1,140 @@
+@* Floating help-desk chatbot (rule-based). Rendered once from _Layout so it appears on every page.
+   Behaviour: wwwroot/js/chatbot.js   ·   Answers: Controllers/Api/ChatbotApiController.cs *@
+<div id="nxbot" class="nxbot-root" data-init-url="/api/chatbot/init" data-ask-url="/api/chatbot/ask">
+
+    <button type="button" id="nxbot-fab" class="nxbot-fab btn-glow" aria-label="Open chat assistant" aria-expanded="false" aria-controls="nxbot-panel">
+        <svg class="nxbot-ico nxbot-ico-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.6-.8L3 21l1.9-5.1A8.4 8.4 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" /><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" /></svg>
+        <svg class="nxbot-ico nxbot-ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+    </button>
+
+    <section id="nxbot-panel" class="nxbot-panel glass-strong" role="dialog" aria-label="Nexus Assistant" hidden>
+        <header class="nxbot-head">
+            <span class="nxbot-avatar" aria-hidden="true">
+                @if (Ui.AssetExists("/images/brand/chatbot-avatar"))
+                {
+                    <img src="@Ui.Asset("/images/brand/chatbot-avatar")" alt="" class="nxbot-avatar-img" onerror="this.style.display='none'" />
+                }
+                else
+                {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3" /><path d="M12 8V5M9 13.5h.01M15 13.5h.01M9.5 16.5h5" /><circle cx="12" cy="4" r="1" /></svg>
+                }
+            </span>
+            <span class="nxbot-head-text">
+                <strong>Nexus Assistant</strong>
+                <small>Plans · Orders · Bills · Support</small>
+            </span>
+            <button type="button" id="nxbot-close" class="nxbot-x" aria-label="Close chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+        </header>
+
+        <div id="nxbot-log" class="nxbot-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+
+        <form id="nxbot-form" class="nxbot-form" autocomplete="off">
+            <input id="nxbot-input" class="field nxbot-input" type="text" maxlength="300" placeholder="Type your question or an Order ID…" aria-label="Type your question" />
+            <button type="submit" id="nxbot-send" class="nxbot-send btn-glow" aria-label="Send">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4 20-7Z" /><path d="M22 2 11 13" /></svg>
+            </button>
+        </form>
+    </section>
+</div>
+
+<style>
+    /* chatbot only — colours are the existing theme's (indigo / white / slate) */
+    .nxbot-root { --nb-ink: #1e293b; --nb-mute: #64748b; --nb-line: #e2e8f0; --nb-soft: #f0f3ff; --nb-brand: #4f46e5; }
+    .nxbot-fab {
+        position: fixed; right: 1rem; bottom: 1rem; z-index: 45;
+        display: grid; place-items: center; width: 3.5rem; height: 3.5rem;
+        border: 0; border-radius: 9999px; color: #fff; cursor: pointer;
+    }
+    .nxbot-fab:focus-visible, .nxbot-send:focus-visible, .nxbot-x:focus-visible, .nxbot-chip:focus-visible { outline: 3px solid rgba(99, 102, 241, 0.55); outline-offset: 2px; }
+    .nxbot-ico { width: 1.6rem; height: 1.6rem; grid-area: 1 / 1; transition: transform 0.3s ease, opacity 0.2s ease; }
+    .nxbot-ico-close { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+    .nxbot-fab[aria-expanded="true"] .nxbot-ico-chat { opacity: 0; transform: rotate(90deg) scale(0.6); }
+    .nxbot-fab[aria-expanded="true"] .nxbot-ico-close { opacity: 1; transform: none; }
+
+    .nxbot-panel {
+        position: fixed; right: 1rem; bottom: 5.4rem; z-index: 46;
+        display: flex; flex-direction: column; overflow: hidden;
+        width: min(24.5rem, calc(100vw - 2rem)); height: min(35rem, calc(100vh - 7.5rem));
+        border-radius: 1.5rem; color: var(--nb-ink);
+        animation: nxbotIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nxbot-panel[hidden] { display: none; }
+    @@keyframes nxbotIn { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+
+    .nxbot-head {
+        display: flex; align-items: center; gap: 0.7rem; padding: 0.85rem 1rem; color: #fff;
+        background: linear-gradient(100deg, #2563eb, #4f46e5 55%, #7c3aed);
+    }
+    .nxbot-avatar { display: grid; place-items: center; flex: none; width: 2.3rem; height: 2.3rem; border-radius: 9999px; background: rgba(255, 255, 255, 0.2); }
+    .nxbot-avatar svg { width: 1.35rem; height: 1.35rem; }
+    .nxbot-avatar-img { width: 100%; height: 100%; border-radius: 9999px; object-fit: cover; }
+    .nxbot-head-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.2; }
+    .nxbot-head-text strong { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; letter-spacing: 0.02em; }
+    .nxbot-head-text small { font-size: 0.7rem; opacity: 0.85; }
+    .nxbot-x { display: grid; place-items: center; width: 2rem; height: 2rem; border: 0; border-radius: 0.6rem; background: transparent; color: #fff; cursor: pointer; transition: background 0.2s ease; }
+    .nxbot-x:hover { background: rgba(255, 255, 255, 0.2); }
+    .nxbot-x svg { width: 1.1rem; height: 1.1rem; }
+
+    .nxbot-log { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 1rem 0.9rem 0.6rem; display: flex; flex-direction: column; gap: 0.7rem; scroll-behavior: smooth; }
+    .nxbot-msg { display: flex; flex-direction: column; gap: 0.45rem; max-width: 92%; animation: nxbotMsg 0.22s ease; }
+    .nxbot-msg.me { align-self: flex-end; align-items: flex-end; }
+    .nxbot-msg.bot { align-self: flex-start; }
+    @@keyframes nxbotMsg { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .nxbot-bubble { margin: 0; padding: 0.6rem 0.85rem; border-radius: 1.05rem; font-size: 0.85rem; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+    .nxbot-msg.bot .nxbot-bubble { background: var(--nb-soft); border: 1px solid rgba(99, 102, 241, 0.14); border-top-left-radius: 0.3rem; }
+    .nxbot-msg.me .nxbot-bubble { color: #fff; background: linear-gradient(100deg, #2563eb, #4f46e5 60%, #7c3aed); border-top-right-radius: 0.3rem; }
+
+    .nxbot-card { padding: 0.6rem 0.75rem; border-radius: 0.9rem; background: #fff; border: 1px solid var(--nb-line); }
+    .nxbot-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+    .nxbot-card-title { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; font-size: 0.85rem; font-weight: 700; overflow-wrap: anywhere; }
+    .nxbot-badge { flex: none; max-width: 55%; padding: 0.12rem 0.55rem; border-radius: 0.7rem; font-size: 0.68rem; font-weight: 700; text-align: right; color: var(--nb-brand); background: rgba(99, 102, 241, 0.1); }
+    .nxbot-card ul { margin: 0.3rem 0 0; padding: 0; list-style: none; }
+    .nxbot-card li { font-size: 0.75rem; line-height: 1.45; color: var(--nb-mute); overflow-wrap: anywhere; }
+
+    .nxbot-steps { display: flex; align-items: flex-start; padding: 0.7rem 0.6rem 0.55rem; border-radius: 0.9rem; background: #fff; border: 1px solid var(--nb-line); }
+    .nxbot-step { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; font-size: 0.68rem; font-weight: 600; color: var(--nb-mute); }
+    .nxbot-step:not(:last-child)::after { content: ""; position: absolute; top: 0.85rem; left: calc(50% + 1rem); width: calc(100% - 2rem); height: 2px; background: var(--nb-line); }
+    .nxbot-step.done:not(:last-child)::after { background: var(--nb-brand); }
+    .nxbot-dot { display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 800; background: #f1f5f9; color: #94a3b8; border: 2px solid var(--nb-line); }
+    .nxbot-step.done .nxbot-dot { background: var(--nb-brand); border-color: var(--nb-brand); color: #fff; }
+    .nxbot-step.current .nxbot-dot { background: #fff; border-color: var(--nb-brand); color: var(--nb-brand); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+    .nxbot-step.fail .nxbot-dot { background: #fff1f2; border-color: #f43f5e; color: #e11d48; }
+    .nxbot-step.done, .nxbot-step.current { color: var(--nb-ink); }
+    .nxbot-step.fail { color: #e11d48; }
+
+    .nxbot-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .nxbot-chip {
+        display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.38rem 0.8rem; border-radius: 9999px;
+        font: inherit; font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-decoration: none; cursor: pointer;
+        color: var(--nb-brand); background: #fff; border: 1px solid rgba(99, 102, 241, 0.35);
+        transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+    .nxbot-chip:hover { background: var(--nb-brand); color: #fff; transform: translateY(-1px); }
+    .nxbot-chip.link::after { content: "↗"; font-size: 0.7rem; }
+
+    .nxbot-typing { display: inline-flex; gap: 0.25rem; padding: 0.7rem 0.85rem; border-radius: 1.05rem; border-top-left-radius: 0.3rem; background: var(--nb-soft); border: 1px solid rgba(99, 102, 241, 0.14); }
+    .nxbot-typing i { width: 0.4rem; height: 0.4rem; border-radius: 9999px; background: #818cf8; animation: nxbotDot 1s infinite ease-in-out; }
+    .nxbot-typing i:nth-child(2) { animation-delay: 0.15s; }
+    .nxbot-typing i:nth-child(3) { animation-delay: 0.3s; }
+    @@keyframes nxbotDot { 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+    .nxbot-form { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 0.8rem; border-top: 1px solid var(--nb-line); background: rgba(255, 255, 255, 0.9); }
+    .nxbot-input { flex: 1; min-width: 0; padding: 0.6rem 0.9rem; font-size: 0.85rem; }
+    .nxbot-send { display: grid; place-items: center; flex: none; width: 2.6rem; height: 2.6rem; border: 0; border-radius: 0.85rem; color: #fff; cursor: pointer; }
+    .nxbot-send:disabled { opacity: 0.55; cursor: not-allowed; }
+    .nxbot-send svg { width: 1.1rem; height: 1.1rem; }
+
+    @@media (max-width: 480px) {
+        .nxbot-panel { right: 0.75rem; left: 0.75rem; width: auto; bottom: 5.2rem; height: min(34rem, calc(100vh - 7rem)); }
+        .nxbot-input { font-size: 16px; } /* stops iOS zooming into the field */
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .nxbot-panel, .nxbot-msg, .nxbot-typing i { animation: none; }
+        .nxbot-log { scroll-behavior: auto; }
+        .nxbot-ico, .nxbot-chip { transition: none; }
+    }
+    @@media print { .nxbot-root { display: none !important; } }
+</style>

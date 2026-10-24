@@ -1,0 +1,551 @@
+@model HomeVm
+@{
+    var marquee = new[]
+    {
+        "Broadband up to 128 Kbps", "Feasibility-verified installs", "Bulk schemes up to 100% off", "Refundable security deposits",
+        "Postpaid billing · 12.24% service tax", "Territory-wide retail outlets", "24×7 network operations desk",
+    };
+    var services = new[]
+    {
+        (Id: "dialup", Icon: "radio", Name: "Dial-Up Access", Tag: "Legacy reach · zero fuss", Image: Ui.Asset("/images/services/dialup"), From: 50m, Featured: false,
+            Features: new[] { "Runs on your Nexus landline", "Hourly packs & unlimited 28/56 Kbps", Fmt.Money(325) + " refundable deposit" }),
+        (Id: "broadband", Icon: "wifi", Name: "Broadband Fiber", Tag: "Our flagship network", Image: Ui.Asset("/images/services/broadband"), From: 175m, Featured: true,
+            Features: new[] { "Always-on unlimited tiers", "Modem or Wi-Fi router supplied", Fmt.Money(500) + " refundable deposit" }),
+        (Id: "landline", Icon: "phone", Name: "Landline Voice", Tag: "Crystal voice · metered fairly", Image: Ui.Asset("/images/services/landline"), From: 35m, Featured: false,
+            Features: new[] { "Local & STD rental plans", "Calls from 55¢ per minute", Fmt.Money(250) + " refundable deposit" }),
+    };
+    var steps = new[]
+    {
+        (Icon: "clipboard-list", Title: "Application", Text: "Walk into any Nexus retail outlet — or apply online — pick a plan, submit your documents and receive an 11-digit order ID on the spot."),
+        (Icon: "radar", Title: "Feasibility survey", Text: "The technical desk measures feeder distance, node capacity and server availability for your address before anything is promised."),
+        (Icon: "wrench", Title: "Activation", Text: "Feasible orders are provisioned within 48 hours with certified equipment — and your 16-digit account ID goes live."),
+        (Icon: "receipt", Title: "Transparent billing", Text: "Postpaid bills carry rentals, usage, discounts and 12.24% service tax. Pay at any outlet counter or the city office."),
+    };
+    var slabs = new[] { ("10 – 15 lines", 25), ("15 – 25 lines", 50), ("25 – 50 lines", 75), ("50+ lines", 100) };
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    // charges calculator: bulk breakpoints come straight from Fmt.BulkDiscount (the same rule the order desk applies)
+    var calcSlabs = new List<int[]>();
+    for (int qn = 1, last = 0; qn <= 200; qn++) { var dsc = Fmt.BulkDiscount(qn); if (dsc != last) { calcSlabs.Add(new[] { qn, dsc }); last = dsc; } }
+    var calcRole = User.Identity?.IsAuthenticated == true ? User.ToSession().Role : "";
+    var calcHref = calcRole switch { "customer" => "/portal#orders", "retail" => "/retail#order", "" => "/register", _ => Fmt.RoleHome(calcRole) };
+    var calcText = calcRole == "" ? "Apply for these lines" : calcRole is "customer" or "retail" ? "Order these lines" : "Open console";
+    var stats = new[]
+    {
+        (Label: "Live connections", Value: Model.Connections, Suffix: "+", Icon: "circle-check"),
+        (Label: "Orders processed", Value: Model.Orders, Suffix: "+", Icon: "scan-search"),
+        (Label: "Retail outlets", Value: Model.Outlets, Suffix: "", Icon: "phone-call"),
+        (Label: "Cities covered", Value: Model.Cities, Suffix: "", Icon: "radio"),
+    };
+}
+
+<main class="relative">
+    @await Html.PartialAsync("_Nav")
+
+    <!-- ================================ HERO ================================ -->
+    <section class="noise relative flex min-h-screen items-center overflow-hidden">
+        <div class="absolute inset-0">
+            <img src="@Ui.Asset("/images/hero/hero-network")" alt="Nexus network across the territory" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover object-center opacity-60" />
+            <div class="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/78 to-ink-950/25"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-ink-950 via-transparent to-ink-950/70"></div>
+            <div class="grid-bg absolute inset-0"></div>
+        </div>
+        <canvas data-network class="absolute inset-0 h-full w-full opacity-70" aria-hidden="true"></canvas>
+
+        <!-- 3D network globe (css/hero-globe.css + js/hero-globe.js) -->
+        <div class="nx-globe" data-nx-globe aria-hidden="true">
+            <div class="nx-globe-halo" data-depth="0.02"></div>
+            <canvas></canvas>
+        </div>
+
+        <div data-depth="0.035" class="pointer-events-none absolute right-[8%] top-[24%] hidden animate-float xl:block">
+            <div class="glass flex items-center gap-3 rounded-2xl px-5 py-4 shadow-2xl">
+                <span class="relative flex h-3 w-3">
+                    <span class="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-emerald-400"></span>
+                    <span class="relative inline-flex h-3 w-3 rounded-full bg-emerald-400"></span>
+                </span>
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.2em] text-slate-400">Order B0000000002</p>
+                    <p class="text-sm font-semibold text-slate-100">Feasibility cleared</p>
+                </div>
+            </div>
+        </div>
+        <div data-depth="-0.05" class="pointer-events-none absolute bottom-[30%] right-[16%] hidden animate-float-slow xl:block">
+            <div class="glass flex items-center gap-3 rounded-2xl px-5 py-4 shadow-2xl">
+                <i data-lucide="wifi" class="h-5 w-5 text-cyan-300"></i>
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.2em] text-slate-400">Broadband 128 Kbps</p>
+                    <p class="text-sm font-semibold text-slate-100">Unlimited · always on</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-10 mx-auto w-full max-w-7xl px-5 pb-28 pt-36 lg:px-8">
+            <div class="max-w-3xl">
+                <div class="fade-up mb-7 inline-flex items-center gap-3 rounded-full border border-cyan-400/25 bg-cyan-400/5 px-4 py-2" style="--d:0s">
+                    <i data-lucide="signal" class="h-4 w-4 text-cyan-300"></i>
+                    <span class="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200">Telecom · Internet · Territory-wide</span>
+                </div>
+
+                <h1 class="fade-up font-display text-[13vw] font-bold leading-[0.94] tracking-tight text-slate-100 sm:text-7xl lg:text-[86px]" style="--d:0.12s">
+                    Signals that
+                    <span class="text-gradient block">stitch cities</span>
+                    together.
+                </h1>
+
+                <p class="fade-up mt-7 max-w-xl text-base leading-relaxed text-slate-400 sm:text-lg" style="--d:0.24s">
+                    Dial-up, broadband and landline connections engineered for reach — ordered at your
+                    neighbourhood retail outlet, verified by precision feasibility surveys, and billed with
+                    total transparency.
+                </p>
+
+                <div class="fade-up mt-9 flex flex-wrap items-center gap-4" style="--d:0.36s">
+                    <a href="/plans" class="btn-glow inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white">
+                        Explore Plans
+                        <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                    </a>
+                    <a href="/register" class="inline-flex items-center gap-2 rounded-full border border-slate-600/80 px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-slate-200 transition hover:border-cyan-400/60 hover:text-cyan-300">
+                        Get Connected
+                    </a>
+                </div>
+
+                <form action="/track" method="get" class="fade-up glass mt-10 flex max-w-xl items-center gap-2 rounded-2xl p-2 pl-5" style="--d:0.48s">
+                    <i data-lucide="scan-search" class="h-5 w-5 shrink-0 text-cyan-300"></i>
+                    <input name="q" placeholder="Track with Order ID (B0000000001) or Account ID" class="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500" />
+                    <button type="submit" class="btn-glow shrink-0 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Track</button>
+                </form>
+            </div>
+
+            <div class="fade-up mt-20 grid max-w-4xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-800/50 lg:grid-cols-4" style="--d:0.7s">
+                @foreach (var s in stats)
+                {
+                    <div class="glass px-6 py-6">
+                        <i data-lucide="@s.Icon" class="mb-3 h-5 w-5 text-cyan-400/80"></i>
+                        <p class="font-display text-3xl font-bold text-slate-100"><span data-count="@s.Value" data-suffix="@s.Suffix">@("0" + s.Suffix)</span></p>
+                        <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">@s.Label</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
+            <i data-lucide="chevron-down" class="h-6 w-6 animate-bounce text-slate-500"></i>
+        </div>
+    </section>
+
+    <!-- =============================== MARQUEE =============================== -->
+    <div class="relative border-y border-slate-800/70 bg-ink-900/70 py-5">
+        <div class="shimmer-line absolute inset-x-0 top-0 h-px"></div>
+        <div class="flex w-max animate-marquee gap-10">
+            @for (var r = 0; r < 2; r++)
+            {
+                foreach (var item in marquee)
+                {
+                    <span class="flex items-center gap-10 whitespace-nowrap">
+                        <span class="font-display text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">@item</span>
+                        <i data-lucide="radar" class="h-4 w-4 text-cyan-500/70"></i>
+                    </span>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- ============================== SERVICES =============================== -->
+    <section id="services" class="relative mx-auto max-w-7xl px-5 py-28 lg:px-8">
+        <div class="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-violet-600/10 blur-[120px]"></div>
+        @await Html.PartialAsync("_SectionHeader", ("What we connect", "Three ways to be <span class=\"text-gradient\">on the grid.</span>",
+            (string?)"Every connection is surveyed for feasibility, provisioned by our technical desk, and backed by equipment from certified manufacturing vendors.", false))
+
+        <div class="mt-16 grid gap-6 lg:grid-cols-3">
+            @{ var si = 0; }
+            @foreach (var s in services)
+            {
+                <div class="reveal @(s.Featured ? "lg:-translate-y-5" : "")" style="--d:@((si++ * 0.12).ToString("0.00", inv))s">
+                    <div class="card-hover group relative flex h-full flex-col overflow-hidden rounded-[2rem] border @(s.Featured ? "border-cyan-400/30 bg-ink-850 shadow-[0_30px_80px_-30px_rgba(34,211,238,0.35)]" : "glass")">
+                        <div class="relative aspect-[3/2] overflow-hidden">
+                            <img src="@s.Image" alt="@s.Name" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110" />
+                            <div class="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/20 to-transparent"></div>
+                            @if (s.Featured)
+                            {
+                                <span class="absolute left-5 top-5 rounded-full bg-cyan-400 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-950">Most popular</span>
+                            }
+                        </div>
+                        <div class="flex flex-1 flex-col p-7">
+                            <div class="flex items-center gap-3">
+                                <span class="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 ring-1 ring-slate-700">
+                                    <i data-lucide="@s.Icon" class="h-5 w-5 text-cyan-300"></i>
+                                </span>
+                                <div>
+                                    <h3 class="font-display text-xl font-bold text-slate-100">@s.Name</h3>
+                                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">@s.Tag</p>
+                                </div>
+                            </div>
+                            <ul class="mt-6 flex-1 space-y-3">
+                                @foreach (var f in s.Features)
+                                {
+                                    <li class="flex items-start gap-2.5 text-sm text-slate-300">
+                                        <i data-lucide="circle-check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-400/80"></i>@f
+                                    </li>
+                                }
+                            </ul>
+                            <div class="mt-7 flex items-center justify-between border-t border-slate-800 pt-5">
+                                <div>
+                                    <p class="text-[11px] uppercase tracking-[0.18em] text-slate-500">Starting at</p>
+                                    <p class="font-display text-2xl font-bold text-slate-100">@Fmt.Money(s.From)</p>
+                                </div>
+                                <a href="/plans" class="grid h-11 w-11 place-items-center rounded-full border border-slate-700 text-slate-300 transition group-hover:border-cyan-400/60 group-hover:text-cyan-300">
+                                    <i data-lucide="arrow-up-right" class="h-5 w-5"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- =============================== TARIFF =============================== -->
+    <section class="relative mx-auto max-w-7xl px-5 pb-28 lg:px-8">
+        <div class="pointer-events-none absolute -left-52 bottom-0 h-96 w-96 rounded-full bg-cyan-500/8 blur-[130px]"></div>
+        @await Html.PartialAsync("_SectionHeader", ("The tariff sheet", "Plans engineered like <span class=\"text-gradient\">infrastructure.</span>",
+            (string?)"Postpaid by design, with refundable deposits and quarterly bundles that reward commitment. Every bill carries the government service tax of 12.24% — nothing hidden, ever.", true))
+        <div class="mt-14">
+            @await Html.PartialAsync("_PlansBrowser", new PlansBrowserVm(Model.Plans, true))
+        </div>
+    </section>
+
+    <!-- =============================== PROCESS =============================== -->
+    <section id="process" class="relative border-y border-slate-800/60 bg-ink-900/50 py-28">
+        <div class="grid-bg absolute inset-0 opacity-60"></div>
+        <div class="relative mx-auto max-w-7xl px-5 lg:px-8">
+            @await Html.PartialAsync("_SectionHeader", ("Order to online", "From paperwork to <span class=\"text-gradient\">pure signal</span> in four moves", (string?)null, true))
+            <div class="relative mt-16 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+                <div class="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent lg:block"></div>
+                @for (var i = 0; i < steps.Length; i++)
+                {
+                    var st = steps[i];
+                    var stepImg = new[] { "application", "survey", "activation", "billing" }[i];
+                    <div class="reveal" style="--d:@((i * 0.14).ToString("0.00", inv))s">
+                        <div class="relative">
+                            <div class="relative mb-6 aspect-[3/2] overflow-hidden rounded-2xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                                <img src="@Ui.Asset("/images/process/" + stepImg)" alt="@st.Title" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-ink-950/60 to-transparent"></div>
+                            </div>
+                            <div class="relative z-10 mb-6 flex items-center gap-4">
+                                <span class="glass-strong grid h-14 w-14 place-items-center rounded-2xl ring-1 ring-cyan-400/30">
+                                    <i data-lucide="@st.Icon" class="h-6 w-6 text-cyan-300"></i>
+                                </span>
+                                <span class="font-display text-5xl font-bold text-slate-800">@("0" + (i + 1))</span>
+                            </div>
+                            <h3 class="font-display text-lg font-bold text-slate-100">@st.Title</h3>
+                            <p class="mt-3 text-sm leading-relaxed text-slate-400">@st.Text</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================= BULK ================================= -->
+    <section id="bulk" class="relative mx-auto max-w-7xl overflow-hidden px-5 py-28 lg:px-8">
+        <div class="pointer-events-none absolute -right-40 top-0 h-[28rem] w-[28rem] rounded-full bg-cyan-500/10 blur-[130px]"></div>
+        <div class="grid items-center gap-14 lg:grid-cols-2">
+            <div>
+                @await Html.PartialAsync("_SectionHeader", ("Bulk & corporate schemes", "The more lines you light up, <span class=\"text-gradient\">the less you pay.</span>",
+                    (string?)"Retain your entire office on one account. Discounts apply instantly on both the advance rental and the security deposit when you order ten or more connections together.", false))
+                <figure class="reveal relative mt-8 aspect-[16/10] overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                    <img src="@Ui.Asset("/images/services/bulk-corporate-visual")" alt="Whole office connected on one Nexus account" loading="lazy" onerror="this.parentElement.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-ink-950/50 via-transparent to-transparent"></div>
+                </figure>
+            </div>
+            <div class="space-y-4">
+                <div class="relative aspect-[12/7] overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                    <img src="@Ui.Asset("/images/services/corporate-office")" alt="Corporate office on one Nexus account" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-ink-950/70 to-transparent"></div>
+                </div>
+                @for (var i = 0; i < slabs.Length; i++)
+                {
+                    <div class="reveal" style="--d:@((i * 0.1).ToString("0.00", inv))s">
+                        <div class="glass card-hover relative overflow-hidden rounded-2xl p-5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <i data-lucide="badge-percent" class="h-5 w-5 text-cyan-300"></i>
+                                    <span class="font-semibold text-slate-200">@slabs[i].Item1</span>
+                                </div>
+                                <span class="font-display text-3xl font-bold text-gradient">@slabs[i].Item2%</span>
+                            </div>
+                            <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                                <div data-bar="@slabs[i].Item2" style="width:0;transition:width 1.2s cubic-bezier(0.22,1,0.36,1) @((0.2 + i * 0.12).ToString("0.00", inv))s" class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-violet-500"></div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================= CALCULATOR ============================= -->
+    <section id="calculator" class="relative mx-auto max-w-7xl px-5 py-28 lg:px-8">
+        <div class="grid items-start gap-14 lg:grid-cols-5">
+            <div class="lg:col-span-2">
+                @await Html.PartialAsync("_SectionHeader", ("Charges calculator", "Know your upfront cost <span class=\"text-gradient\">before you apply.</span>",
+                    (string?)"Pick a plan and the number of connections — advance rental, refundable security deposit, bulk discount and service tax are worked out for you.", false))
+                <ul class="reveal mt-8 space-y-3 text-sm text-slate-400">
+                    <li class="flex items-start gap-3"><i data-lucide="badge-percent" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Ten or more lines earn the bulk discount on both rental and deposit.</li>
+                    <li class="flex items-start gap-3"><i data-lucide="receipt" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>@Fmt.ServiceTaxRate.ToString("0.##", inv)% service tax is added on the discounted rental.</li>
+                    <li class="flex items-start gap-3"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>The security deposit is refundable in full when you withdraw the connection.</li>
+                </ul>
+                @if (Ui.AssetExists("/images/hero/calculator-visual"))
+                {
+                    <figure class="reveal relative mt-8 hidden aspect-[16/10] overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10 lg:block">
+                        <img src="@Ui.Asset("/images/hero/calculator-visual")" alt="Plan your connection cost" loading="lazy" onerror="this.parentElement.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                        <div class="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent"></div>
+                    </figure>
+                }
+            </div>
+
+            <div class="reveal lg:col-span-3" style="--d:0.1s">
+                <figure class="relative mb-6 aspect-[16/7] overflow-hidden rounded-[2rem] border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                    <img src="@Ui.Asset("/images/hero/calculator-form-banner")" alt="Estimate your upfront connection charges" loading="lazy" onerror="this.parentElement.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-ink-950/40 via-transparent to-transparent"></div>
+                </figure>
+                <div data-calc data-tax="@Fmt.ServiceTaxRate.ToString(inv)" data-slabs="@System.Text.Json.JsonSerializer.Serialize(calcSlabs)" class="glass-strong relative overflow-hidden rounded-[2rem] p-7 sm:p-9">
+                    <div class="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-violet-600/15 blur-3xl"></div>
+                    <div class="relative grid gap-5 sm:grid-cols-5">
+                        <label class="block sm:col-span-3">
+                            <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Plan</span>
+                            <select data-calc-plan class="field">
+                                @foreach (var g in Model.Plans.GroupBy(p => p.ConnectionType))
+                                {
+                                    <optgroup label="@Fmt.TypeLabel(g.Key)">
+                                        @foreach (var p in g)
+                                        {
+                                            <option value="@p.Id" data-price="@Fmt.Dec(p.Price)" data-deposit="@Fmt.Dec(p.Deposit)" data-type="@p.ConnectionType">@p.Category · @p.Name — @Fmt.Money(p.Price)</option>
+                                        }
+                                    </optgroup>
+                                }
+                            </select>
+                        </label>
+                        <div class="sm:col-span-2">
+                            <span class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connections</span>
+                            <div class="calc-qty">
+                                <button type="button" data-calc-dec aria-label="Fewer connections">−</button>
+                                <input data-calc-qty type="number" inputmode="numeric" min="1" max="10000" value="1" aria-label="Number of connections" />
+                                <button type="button" data-calc-inc aria-label="More connections">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative mt-6">
+                        <div class="calc-row"><span>Advance rental<small data-calc-rental-note></small></span><b data-calc-rental>$0.00</b></div>
+                        <div class="calc-row off" data-calc-disc-row hidden><span>Bulk discount <span data-calc-pct></span><small>on rental and deposit</small></span><b data-calc-disc>−$0.00</b></div>
+                        <div class="calc-row"><span>Security deposit<small>refundable</small></span><b data-calc-deposit>$0.00</b></div>
+                        <div class="calc-row"><span>Service tax <span>@Fmt.ServiceTaxRate.ToString("0.##", inv)%</span><small>on the discounted rental</small></span><b data-calc-tax>$0.00</b></div>
+                        <div class="calc-total">
+                            <div>
+                                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Total payable upfront</p>
+                                <p data-calc-hint class="mt-1 text-xs text-emerald-600"></p>
+                            </div>
+                            <p data-calc-total class="font-display text-4xl font-bold text-gradient sm:text-5xl">$0.00</p>
+                        </div>
+                    </div>
+
+                    <div class="relative mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-5">
+                        <p class="text-xs text-slate-500">Estimate only — recurring bills carry usage and the same tax.</p>
+                        <a href="@calcHref" class="btn-glow inline-flex items-center gap-2 rounded-full px-6 py-3 font-display text-xs font-bold uppercase tracking-wider text-white">
+                            @calcText <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =============================== OUTLETS =============================== -->
+    <section id="outlets" class="relative border-y border-slate-800/60 bg-ink-900/50 py-28">
+        <div class="mx-auto max-w-7xl px-5 lg:px-8">
+            <div class="grid items-start gap-14 lg:grid-cols-5">
+                <div class="lg:col-span-2">
+                    @await Html.PartialAsync("_SectionHeader", ("Retail network", "A Nexus counter, <span class=\"text-gradient\">always nearby.</span>",
+                        (string?)"Place orders, make payments or simply ask questions — our outlet executives handle applications across every city in the territory.", false))
+                    <div class="reveal relative mt-10 hidden overflow-hidden rounded-[2rem] lg:block" style="--d:0.2s">
+                        <div class="relative aspect-[4/5]">
+                            <img src="@Ui.Asset("/images/services/retail-store")" alt="Nexus retail outlet" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                            <div class="absolute inset-0 bg-gradient-to-t from-ink-950 via-transparent to-transparent"></div>
+                            <div class="glass-strong absolute bottom-5 left-5 right-5 rounded-2xl p-4">
+                                <p class="text-xs uppercase tracking-[0.2em] text-cyan-300">Flagship outlet</p>
+                                <p class="mt-1 font-display font-bold text-slate-100">Meridian Central — Circuit Avenue</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid gap-5 sm:grid-cols-2 lg:col-span-3">
+                    @for (var i = 0; i < Model.Shops.Count; i++)
+                    {
+                        var sh = Model.Shops[i];
+                        <div class="reveal" style="--d:@((i * 0.08).ToString("0.00", inv))s">
+                            <div class="glass card-hover h-full overflow-hidden rounded-3xl p-6">
+                                <div class="relative -mx-6 -mt-6 mb-5 aspect-[3/2] overflow-hidden bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
+                                    <img src="@Ui.ShopImage(sh.ImageUrl)" alt="@sh.Name" loading="lazy" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+                                    <div class="absolute inset-0 bg-gradient-to-t from-ink-900/70 to-transparent"></div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[11px] font-bold tracking-[0.14em] text-cyan-300">@sh.Code</span>
+                                    <i data-lucide="building-2" class="h-5 w-5 text-slate-600"></i>
+                                </div>
+                                <h3 class="mt-5 font-display text-lg font-bold text-slate-100">@sh.Name</h3>
+                                <p class="text-sm text-cyan-200/70">@sh.City</p>
+                                <div class="mt-4 space-y-2.5 text-sm text-slate-400">
+                                    <p class="flex items-start gap-2.5"><i data-lucide="map-pin" class="mt-0.5 h-4 w-4 shrink-0 text-slate-600"></i>@sh.Address</p>
+                                    <p class="flex items-center gap-2.5"><i data-lucide="phone" class="h-4 w-4 shrink-0 text-slate-600"></i>@sh.Phone</p>
+                                    <p class="flex items-center gap-2.5"><i data-lucide="landmark" class="h-4 w-4 shrink-0 text-slate-600"></i>Managed by @(sh.Manager ?? "Nexus desk")</p>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================== FEEDBACK =============================== -->
+    <section class="relative mx-auto max-w-7xl px-5 py-28 lg:px-8">
+        <div class="grid gap-14 lg:grid-cols-2">
+            <div>
+                @await Html.PartialAsync("_SectionHeader", ("Voices on the line", "Trusted where it matters — <span class=\"text-gradient\">at the socket.</span>", (string?)null, false))
+                <div class="mt-10 space-y-5">
+                    @for (var i = 0; i < Math.Min(3, Model.Quotes.Count); i++)
+                    {
+                        var q = Model.Quotes[i];
+                        <div class="reveal" style="--d:@((i * 0.1).ToString("0.00", inv))s">
+                            <div class="glass rounded-3xl p-6">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1">
+                                        @for (var st = 0; st < q.Rating; st++)
+                                        {
+                                            <i data-lucide="star" class="h-4 w-4 fill-amber-300 text-amber-300"></i>
+                                        }
+                                    </div>
+                                    <i data-lucide="quote" class="h-5 w-5 text-slate-700"></i>
+                                </div>
+                                <p class="mt-4 text-sm leading-relaxed text-slate-300">“@q.Message”</p>
+                                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                    @q.Name
+                                    @if (!string.IsNullOrEmpty(q.ConnectionType))
+                                    {
+                                        <span class="text-cyan-400/80"> · @Fmt.TypeLabel(q.ConnectionType)</span>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="reveal" style="--d:0.15s">
+                <div class="glass-strong relative overflow-hidden rounded-[2rem] p-8 sm:p-10">
+                    <div class="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-violet-600/15 blur-3xl"></div>
+                    <h3 class="font-display text-2xl font-bold text-slate-100">Send us a signal</h3>
+                    <p class="mt-2 text-sm text-slate-400">Feedback, enquiries and plan questions — the network desk reads everything.</p>
+                    <form id="feedback-form" class="mt-8 space-y-4">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <input name="name" required maxlength="200" placeholder="Your name" class="field" />
+                            <input name="contact" placeholder="Phone or email" class="field" />
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <select name="type" class="field">
+                                <option value="" disabled selected>Connection type</option>
+                                <option value="dialup">Dial-Up</option>
+                                <option value="broadband">Broadband</option>
+                                <option value="landline">Landline</option>
+                            </select>
+                            <select name="rating" class="field">
+                                <option value="5" selected>★★★★★ Excellent</option>
+                                <option value="4">★★★★ Good</option>
+                                <option value="3">★★★ Average</option>
+                                <option value="2">★★ Poor</option>
+                                <option value="1">★ Bad</option>
+                            </select>
+                        </div>
+                        <textarea name="message" required rows="4" maxlength="4000" placeholder="Your message…" class="field resize-none"></textarea>
+                        <button id="feedback-btn" class="btn-glow flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white disabled:opacity-60">
+                            <i data-lucide="send" class="h-4 w-4"></i>
+                            <span id="feedback-label">Transmit feedback</span>
+                        </button>
+                        <p id="feedback-done" hidden class="flex items-center gap-2 text-sm text-emerald-300">
+                            <i data-lucide="circle-check" class="h-4 w-4"></i> Received loud and clear — thank you.
+                        </p>
+                        <p id="feedback-error" hidden class="text-sm text-rose-300">Transmission failed — please retry.</p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================================= CTA ================================= -->
+    <section class="relative overflow-hidden">
+        <div class="absolute inset-0">
+            <img src="@Ui.Asset("/images/hero/cta-engineer")" alt="Nexus network operations" onerror="this.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
+            <div class="absolute inset-0 bg-ink-950/82"></div>
+            <div class="animate-aurora absolute -left-40 top-0 h-96 w-[36rem] rounded-full bg-cyan-500/15 blur-[110px]"></div>
+            <div class="animate-aurora absolute -right-40 bottom-0 h-96 w-[36rem] rounded-full bg-violet-600/15 blur-[110px]"></div>
+        </div>
+        <div class="relative mx-auto max-w-5xl px-5 py-32 text-center lg:px-8">
+            <div class="reveal">
+                <p class="text-xs font-bold uppercase tracking-[0.3em] text-cyan-300">Ready when you are</p>
+                <h2 class="mx-auto mt-5 max-w-3xl font-display text-4xl font-bold leading-tight text-slate-100 sm:text-6xl">
+                    Get your connection <span class="text-gradient">surveyed this week.</span>
+                </h2>
+                <p class="mx-auto mt-6 max-w-xl text-slate-400">
+                    Create a free account to place an order, track an application, or check a bill — the entire Nexus
+                    network is one dashboard away. Already a customer? <a href="/login" class="font-semibold text-cyan-300 hover:underline">Sign in</a>.
+                </p>
+                <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+                    <a href="/register" class="btn-glow inline-flex items-center gap-2 rounded-full px-8 py-4 font-display text-sm font-bold uppercase tracking-wider text-white">
+                        Create free account
+                        <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                    </a>
+                    <a href="/track" class="inline-flex items-center gap-2 rounded-full border border-slate-500/70 px-8 py-4 font-display text-sm font-bold uppercase tracking-wider text-slate-200 transition hover:border-cyan-400/60 hover:text-cyan-300">
+                        Track an order
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @await Html.PartialAsync("_Footer")
+</main>
+
+@section Head {
+    <link rel="stylesheet" href="~/css/hero-globe.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/hero-globe.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            var form = document.getElementById('feedback-form');
+            if (!form) return;
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var btn = document.getElementById('feedback-btn');
+                var label = document.getElementById('feedback-label');
+                var done = document.getElementById('feedback-done');
+                var err = document.getElementById('feedback-error');
+                var fd = new FormData(form);
+                if (String(fd.get('message') || '').trim().length < 5) { err.textContent = 'Please write a few words so we can help.'; err.hidden = false; return; }
+                btn.disabled = true; label.textContent = 'Transmitting…'; done.hidden = true; err.hidden = true;
+                var res = await nx.api('/api/crud/feedback', {
+                    method: 'POST',
+                    body: {
+                        name: fd.get('name'), contact: fd.get('contact'),
+                        connectionType: fd.get('type') || null,
+                        rating: Number(fd.get('rating') || 5), message: fd.get('message')
+                    }
+                });
+                btn.disabled = false; label.textContent = 'Transmit feedback';
+                if (res.ok) { done.hidden = false; form.reset(); nx.toast('Thank you — your message has been received', 'success'); }
+                else { err.textContent = nx.errText(res, 'Transmission failed — please retry.'); err.hidden = false; }
+            });
+        })();
+    </script>
+}
