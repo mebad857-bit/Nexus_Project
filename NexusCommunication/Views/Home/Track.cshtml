@@ -141,10 +141,18 @@
                                     </div>
                                 }
                             }
-                            @{ Info("Ordered by", Nm(o.Customer?.Name)); }
-                            @{ Info("Contact", Ph(o.Customer?.Phone)); }
-                            @{ Info("Plan selected", o.Plan == null ? "—" : o.Plan.Category + " · " + o.Plan.Name); }
-                            @{ Info("Placed on", Fmt.Stamp(o.CreatedAt)); }
+                            @{
+                                Info("Ordered by", Nm(o.Customer?.Name));
+                            }
+                            @{
+                                Info("Contact", Ph(o.Customer?.Phone));
+                            }
+                            @{
+                                Info("Plan selected", o.Plan == null ? "—" : o.Plan.Category + " · " + o.Plan.Name);
+                            }
+                            @{
+                                Info("Placed on", Fmt.Stamp(o.CreatedAt));
+                            }
                             @if (o.Corporate)
                             {
                                 Info("Corporate bulk", $"{o.Quantity} lines · {o.DiscountPct}% rebate");
@@ -206,10 +214,18 @@
                                     </div>
                                 }
                             }
-                            @{ Info2("Subscriber", Nm(conn.Customer?.Name)); }
-                            @{ Info2("Plan", (conn.Plan?.Category ?? "") + " · " + (conn.Plan?.Name ?? "")); }
-                            @{ Info2("City", $"{conn.City} ({conn.CityCode})"); }
-                            @{ Info2("On network since", Fmt.Date(conn.ActivatedAt)); }
+                            @{
+                                Info2("Subscriber", Nm(conn.Customer?.Name));
+                            }
+                            @{
+                                Info2("Plan", (conn.Plan?.Category ?? "") + " · " + (conn.Plan?.Name ?? ""));
+                            }
+                            @{
+                                Info2("City", $"{conn.City} ({conn.CityCode})");
+                            }
+                            @{
+                                Info2("On network since", Fmt.Date(conn.ActivatedAt));
+                            }
                         </div>
                     </div>
 
@@ -270,7 +286,10 @@
                     <p class="mb-4 text-sm text-slate-500">
                         <span class="font-semibold text-slate-200">@Model.Results.Count</span> application(s) and
                         <span class="font-semibold text-slate-200">@Model.ConnResults.Count</span> connection(s) found — select one for the full trace.
-                        @if (!Model.IsStaff) { <span class="text-slate-600">Personal details are partly hidden on the public search.</span> }
+                        @if (!Model.IsStaff)
+                        {
+                            <span class="text-slate-600">Personal details are partly hidden on the public search.</span>
+                        }
                     </p>
 
                     @if (Model.Results.Count > 0)
@@ -338,9 +357,12 @@
             var btn = document.getElementById('adv-toggle');
             var form = document.getElementById('adv-form');
             var label = document.getElementById('adv-label');
+            // the form is hidden with Tailwind's "hidden" class (display:none), so toggle that class - the [hidden] attribute alone cannot override it
             btn.addEventListener('click', function () {
-                form.hidden = !form.hidden;
-                label.textContent = form.hidden ? 'Open advanced search' : 'Hide advanced search';
+                var open = form.classList.toggle('hidden') === false;
+                form.hidden = false;
+                label.textContent = open ? 'Hide advanced search' : 'Open advanced search';
+                if (open) { var first = form.querySelector('input:not([type=hidden])'); if (first) first.focus(); }
             });
         })();
     </script>
