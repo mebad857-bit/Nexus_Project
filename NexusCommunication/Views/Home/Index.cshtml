@@ -2,7 +2,7 @@
 @{
     var marquee = new[]
     {
-        "Broadband up to 128 Kbps", "Feasibility-verified installs", "Bulk schemes up to 100% off", "Refundable security deposits",
+        "Broadband up to 128 Kbps", "Feasibility-verified installs", "Bulk schemes up to 40% off", "Refundable security deposits",
         "Postpaid billing · 12.24% service tax", "Territory-wide retail outlets", "24×7 network operations desk",
     };
     var services = new[]
@@ -21,7 +21,7 @@
         (Icon: "wrench", Title: "Activation", Text: "Feasible orders are provisioned within 48 hours with certified equipment — and your 16-digit account ID goes live."),
         (Icon: "receipt", Title: "Transparent billing", Text: "Postpaid bills carry rentals, usage, discounts and 12.24% service tax. Pay at any outlet counter or the city office."),
     };
-    var slabs = new[] { ("10 – 15 lines", 25), ("15 – 25 lines", 50), ("25 – 50 lines", 75), ("50+ lines", 100) };
+    var slabs = new[] { ("20 – 30 lines", 10), ("31 – 40 lines", 30), ("41+ lines", 40) };
     var inv = System.Globalization.CultureInfo.InvariantCulture;
     // charges calculator: bulk breakpoints come straight from Fmt.BulkDiscount (the same rule the order desk applies)
     var calcSlabs = new List<int[]>();
@@ -156,7 +156,9 @@
             (string?)"Every connection is surveyed for feasibility, provisioned by our technical desk, and backed by equipment from certified manufacturing vendors.", false))
 
         <div class="mt-16 grid gap-6 lg:grid-cols-3">
-            @{ var si = 0; }
+            @{
+                var si = 0;
+            }
             @foreach (var s in services)
             {
                 <div class="reveal @(s.Featured ? "lg:-translate-y-5" : "")" style="--d:@((si++ * 0.12).ToString("0.00", inv))s">
@@ -251,7 +253,7 @@
         <div class="grid items-center gap-14 lg:grid-cols-2">
             <div>
                 @await Html.PartialAsync("_SectionHeader", ("Bulk & corporate schemes", "The more lines you light up, <span class=\"text-gradient\">the less you pay.</span>",
-                    (string?)"Retain your entire office on one account. Discounts apply instantly on both the advance rental and the security deposit when you order ten or more connections together.", false))
+                    (string?)"Retain your entire office on one account. Discounts apply instantly on both the advance rental and the security deposit when you order twenty or more connections together.", false))
                 <figure class="reveal relative mt-8 aspect-[16/10] overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-cyan-500/10 to-violet-600/10">
                     <img src="@Ui.Asset("/images/services/bulk-corporate-visual")" alt="Whole office connected on one Nexus account" loading="lazy" onerror="this.parentElement.style.display='none'" class="absolute inset-0 h-full w-full object-cover" />
                     <div class="absolute inset-0 bg-gradient-to-t from-ink-950/50 via-transparent to-transparent"></div>
@@ -290,7 +292,7 @@
                 @await Html.PartialAsync("_SectionHeader", ("Charges calculator", "Know your upfront cost <span class=\"text-gradient\">before you apply.</span>",
                     (string?)"Pick a plan and the number of connections — advance rental, refundable security deposit, bulk discount and service tax are worked out for you.", false))
                 <ul class="reveal mt-8 space-y-3 text-sm text-slate-400">
-                    <li class="flex items-start gap-3"><i data-lucide="badge-percent" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Ten or more lines earn the bulk discount on both rental and deposit.</li>
+                    <li class="flex items-start gap-3"><i data-lucide="badge-percent" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>Twenty or more lines earn the bulk discount on both rental and deposit.</li>
                     <li class="flex items-start gap-3"><i data-lucide="receipt" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>@Fmt.ServiceTaxRate.ToString("0.##", inv)% service tax is added on the discounted rental.</li>
                     <li class="flex items-start gap-3"><i data-lucide="shield-check" class="mt-0.5 h-4 w-4 shrink-0 text-cyan-300"></i>The security deposit is refundable in full when you withdraw the connection.</li>
                 </ul>

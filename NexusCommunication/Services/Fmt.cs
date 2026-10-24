@@ -27,9 +27,12 @@ public static class Fmt
     public static string MonthLabel(int monthsBack = 0) =>
         DateTime.Now.AddMonths(-monthsBack).ToString("MMMM yyyy", En);
 
-    /// <summary>Corporate slabs from the spec: 10-15 lines 25%, 15-25 lines 50%, 25-50 lines 75%, above 50 lines 100%.</summary>
+    /// <summary>Minimum number of lines for an order to count as corporate / bulk.</summary>
+    public const int BulkMinLines = 20;
+
+    /// <summary>Bulk slabs: 20-30 lines 10%, 31-40 lines 30%, 41+ lines 40%. Below 20 lines there is no discount.</summary>
     public static int BulkDiscount(int quantity) =>
-        quantity > 50 ? 100 : quantity >= 25 ? 75 : quantity >= 15 ? 50 : quantity >= 10 ? 25 : 0;
+        quantity >= 41 ? 40 : quantity >= 31 ? 30 : quantity >= BulkMinLines ? 10 : 0;
 
     /// <summary>"Meera Joshi" -> "M**** J****" (used on the public search so strangers cannot read personal data)</summary>
     public static string MaskName(string? name)
@@ -60,32 +63,48 @@ public static class Fmt
 
     public static string TypeLabel(string? type) => type switch
     {
-        "dialup" => "Dial-Up", "broadband" => "Broadband", "landline" => "Landline", _ => type ?? "—",
+        "dialup" => "Dial-Up",
+        "broadband" => "Broadband",
+        "landline" => "Landline",
+        _ => type ?? "—",
     };
 
     public static decimal Deposit(string type) => type switch { "dialup" => 325m, "broadband" => 500m, _ => 250m };
 
     public static string OrderStatus(string s) => s switch
     {
-        "pending" => "Feasibility Pending", "feasible" => "Feasible", "infeasible" => "Not Feasible",
-        "connected" => "Connected", "cancelled" => "Cancelled", _ => s,
+        "pending" => "Feasibility Pending",
+        "feasible" => "Feasible",
+        "infeasible" => "Not Feasible",
+        "connected" => "Connected",
+        "cancelled" => "Cancelled",
+        _ => s,
     };
 
     public static string ConnStatus(string s) => s switch
     {
-        "active" => "Active", "temporarily_inactive" => "Temporarily Inactive",
-        "permanently_inactive" => "Permanently Inactive", _ => s,
+        "active" => "Active",
+        "temporarily_inactive" => "Temporarily Inactive",
+        "permanently_inactive" => "Permanently Inactive",
+        _ => s,
     };
 
     public static string BillStatus(string s) => s switch
     {
-        "pending" => "Unpaid", "partial" => "Partially Paid", "paid" => "Paid", _ => s,
+        "pending" => "Unpaid",
+        "partial" => "Partially Paid",
+        "paid" => "Paid",
+        _ => s,
     };
 
     public static string RoleHome(string role) => role switch
     {
-        "admin" => "/admin", "accounts" => "/accounts", "technical" => "/technical",
-        "retail" => "/retail", "customer" => "/portal", _ => "/",
+        "admin" => "/admin",
+        "accounts" => "/accounts",
+        "technical" => "/technical",
+        "retail" => "/retail",
+        "customer" => "/portal",
+        _ => "/",
     };
 
     /// <summary>Round-trippable decimal for HTML attributes / JS (always '.' as separator)</summary>

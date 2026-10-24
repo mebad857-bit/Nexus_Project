@@ -47,8 +47,10 @@ public class AuthController : Controller
         }
     }
 
+    // no-store: browser must never keep/restore a cached login page (stops old credentials reappearing after logout / back button)
     [AllowAnonymous]
     [HttpGet("login")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public IActionResult Login()
     {
         if (User.Identity?.IsAuthenticated == true)
@@ -58,6 +60,7 @@ public class AuthController : Controller
 
     [AllowAnonymous]
     [HttpPost("login")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Login(LoginVm vm, string? returnUrl = null)
     {
         var username = (vm.Username ?? "").Trim();

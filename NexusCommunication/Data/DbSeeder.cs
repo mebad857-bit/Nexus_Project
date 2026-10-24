@@ -133,7 +133,7 @@ public static class DbSeeder
         AddOrder(O("B0000000001", "Meera Joshi", "broadband", "b128m", "connected", "Fiber drop within range — connection activated.", "NX-101", "Sara Fernandes", 92));
         AddOrder(O("B0000000002", "Tanya Bhatt", "broadband", "b64q", "feasible", "Node 500m away — ready for installation visit.", "NX-102", "David Chen", 7));
         AddOrder(O("B0000000003", "Vikram Rao", "broadband", "b64m", "infeasible", "Feeder length 4.2 km — beyond broadband reach.", "NX-101", "Sara Fernandes", 20));
-        AddOrder(O("B0000000004", "Elena D'Souza", "broadband", "b128q", "feasible", "Corporate bulk — 12 lines for Innovation Drive office. 25% slab applied.", "NX-103", "David Chen", 5, qty: 12, corp: true, disc: 25));
+        AddOrder(O("B0000000004", "Elena D'Souza", "broadband", "b128q", "feasible", "Corporate bulk — 22 lines for Innovation Drive office. 10% slab applied.", "NX-103", "David Chen", 5, qty: 22, corp: true, disc: 10));
         AddOrder(O("T0000000001", "Kabir Anand", "landline", "stdm", "connected", "Copper pair available — voice line live.", "NX-102", "David Chen", 62));
         AddOrder(O("T0000000002", "Farhan Qureshi", "landline", "llm", "cancelled", "Duplicate application withdrawn by customer.", "NX-104", "David Chen", 45));
         AddOrder(O("T0000000003", "Kabir Anand", "landline", "llu", "pending", null, "NX-102", "David Chen", 12));
@@ -166,18 +166,30 @@ public static class DbSeeder
                 BillNo = $"INV-{createdAt.Year}-{billSeq:0000}",
                 Connection = conns[acct],
                 Period = createdAt.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("en-US")),
-                Rental = rental, Usage = usage, Tax = tax, Discount = discount, Total = total,
-                PaidAmount = paid, DueAmount = total - paid, Status = status,
-                DueDate = createdAt.AddDays(10), GeneratedBy = "Priya Nair", CreatedAt = createdAt,
+                Rental = rental,
+                Usage = usage,
+                Tax = tax,
+                Discount = discount,
+                Total = total,
+                PaidAmount = paid,
+                DueAmount = total - paid,
+                Status = status,
+                DueDate = createdAt.AddDays(10),
+                GeneratedBy = "Priya Nair",
+                CreatedAt = createdAt,
             };
             db.Bills.Add(bill);
             if (paid > 0)
             {
                 db.Payments.Add(new Payment
                 {
-                    Bill = bill, Amount = paid, Method = method,
+                    Bill = bill,
+                    Amount = paid,
+                    Method = method,
                     Reference = $"NX-{Random.Shared.Next(100000, 999999)}",
-                    Channel = channel, ReceivedBy = receivedBy, CreatedAt = createdAt.AddDays(3),
+                    Channel = channel,
+                    ReceivedBy = receivedBy,
+                    CreatedAt = createdAt.AddDays(3),
                 });
             }
         }
@@ -336,7 +348,7 @@ public static class DbSeeder
             M("Meera Joshi", "meera.joshi@mail.com", "Hello, my broadband speed drops every evening between 8 and 10 pm. Could someone from the technical desk please check the line?", 0.2, false),
             M("Farhan Qureshi", "farhan.q@mail.com", "I applied for a dial-up connection two days ago and the order is still pending. Can you tell me when the feasibility survey will happen?", 0.6, false),
             M("Tanya Bhatt", "tanya.bhatt@mail.com", "Is it possible to shift my broadband connection to a new address in Northgate? Please let me know the charges and the process.", 1.5, false),
-            M("Imran Siddiqui", "imran.siddiqui@mail.com", "We run a small office with 14 staff. Please share the corporate scheme details and how the 25% bulk discount is applied on the deposit.", 2.4, false),
+            M("Imran Siddiqui", "imran.siddiqui@mail.com", "We run an office with 22 staff. Please share the corporate scheme details and how the 10% bulk discount is applied on the deposit.", 2.4, false),
             M("Kabir Anand", "kabir.anand@mail.com", "My landline bill for this month looks higher than usual. Can the accounts desk send me the call-wise breakup?", 4, true),
             M("Sana Malik", "sana.malik@mail.com", "I paid my bill at the Harbor Point counter yesterday but it still shows as pending in my portal. Receipt number is attached in my original visit.", 5.5, true),
             M("Elena D'Souza", "elena.dsouza@mail.com", "Thank you for the quick installation at our Tech Park office. The team was professional and the 30-hour pack works well for us.", 9, true),
@@ -361,8 +373,14 @@ public static class DbSeeder
             var created = Ago(daysAgo);
             var t = new Ticket
             {
-                TicketNo = $"TK-{++seq:000000}", Customer = customers[customer], Category = category, Subject = subject, Description = desc,
-                Status = status, CreatedAt = created, UpdatedAt = created.AddHours(5),
+                TicketNo = $"TK-{++seq:000000}",
+                Customer = customers[customer],
+                Category = category,
+                Subject = subject,
+                Description = desc,
+                Status = status,
+                CreatedAt = created,
+                UpdatedAt = created.AddHours(5),
             };
             if (assign != null && status != TicketStatus.Open) { t.AssignedEmployee = assign; t.AssignedAt = created.AddHours(2); }
             if (status is TicketStatus.Resolved or TicketStatus.Closed) t.ResolvedAt = created.AddDays(1);
@@ -420,7 +438,7 @@ public static class DbSeeder
             F(50, "Is there any tax on my bill?",
                 "Yes. A 12.24% service tax applies on the whole bill (rental + usage - discounts), and every invoice shows the exact tax line."),
             F(60, "Do you offer discounts for several connections?",
-                "Yes. Ordering 10-15 lines earns 25% off the advance rental and deposit, 15-25 lines 50%, 25-50 lines 75%, and more than 50 lines 100%. It is applied automatically."),
+                "Yes. Ordering 20-30 lines earns 10% off the advance rental and deposit, 31-40 lines 30%, and 41+ lines 40%. It is applied automatically."),
             F(70, "Where can I pay my bill?",
                 "At any Nexus retail outlet counter or at the accounts desk of the city head office. Keep your invoice number handy, and you can print or save any invoice as a PDF."),
             F(80, "Can I cancel an order?",
@@ -455,32 +473,43 @@ public static class DbSeeder
     {
         var shopImg = new Dictionary<string, string>
         {
-            ["NX-101"] = "/images/shops/nx-101-flagship", ["NX-102"] = "/images/shops/nx-102-harbor-hub",
-            ["NX-103"] = "/images/shops/nx-103-tech-park", ["NX-104"] = "/images/shops/nx-104-express",
+            ["NX-101"] = "/images/shops/nx-101-flagship",
+            ["NX-102"] = "/images/shops/nx-102-harbor-hub",
+            ["NX-103"] = "/images/shops/nx-103-tech-park",
+            ["NX-104"] = "/images/shops/nx-104-express",
         };
         var empImg = new Dictionary<string, string>
         {
-            ["EMP-0001"] = "/images/people/emp-aarav-mehta", ["EMP-0002"] = "/images/people/emp-priya-nair",
-            ["EMP-0003"] = "/images/people/emp-rohan-verma", ["EMP-0004"] = "/images/people/emp-sara-fernandes",
-            ["EMP-0005"] = "/images/people/emp-david-chen", ["EMP-0006"] = "/images/people/emp-nina-kapoor",
+            ["EMP-0001"] = "/images/people/emp-aarav-mehta",
+            ["EMP-0002"] = "/images/people/emp-priya-nair",
+            ["EMP-0003"] = "/images/people/emp-rohan-verma",
+            ["EMP-0004"] = "/images/people/emp-sara-fernandes",
+            ["EMP-0005"] = "/images/people/emp-david-chen",
+            ["EMP-0006"] = "/images/people/emp-nina-kapoor",
         };
         var vendorImg = new Dictionary<string, string>
         {
-            ["Zyxelwave Technologies"] = "/images/vendors/zyxelwave", ["FiberLink Industries"] = "/images/vendors/fiberlink",
+            ["Zyxelwave Technologies"] = "/images/vendors/zyxelwave",
+            ["FiberLink Industries"] = "/images/vendors/fiberlink",
             ["ComSet Devices"] = "/images/vendors/comset",
         };
         var equipImg = new Dictionary<string, string>
         {
-            ["NW-5600 VDSL Modem"] = "/images/products/modem-nw5600", ["NW-AX3200 WiFi 6 Router"] = "/images/products/router-ax3200",
-            ["Dual-Band GPON ONT"] = "/images/products/ont-gpon", ["Corded Desk Phone CX-2"] = "/images/products/phone-cx2",
+            ["NW-5600 VDSL Modem"] = "/images/products/modem-nw5600",
+            ["NW-AX3200 WiFi 6 Router"] = "/images/products/router-ax3200",
+            ["Dual-Band GPON ONT"] = "/images/products/ont-gpon",
+            ["Corded Desk Phone CX-2"] = "/images/products/phone-cx2",
             ["ADSL2+ Micro Modem"] = "/images/products/modem-adsl-micro",
             ["Cat6 Drop Cable (305m)"] = "/images/products/cable-cat6",
         };
         var custImg = new Dictionary<string, string>
         {
-            ["Meera Joshi"] = "/images/people/cust-meera-joshi", ["Kabir Anand"] = "/images/people/cust-kabir-anand",
-            ["Elena D'Souza"] = "/images/people/cust-elena-dsouza", ["Farhan Qureshi"] = "/images/people/cust-farhan-qureshi",
-            ["Tanya Bhatt"] = "/images/people/cust-tanya-bhatt", ["Vikram Rao"] = "/images/people/cust-vikram-rao",
+            ["Meera Joshi"] = "/images/people/cust-meera-joshi",
+            ["Kabir Anand"] = "/images/people/cust-kabir-anand",
+            ["Elena D'Souza"] = "/images/people/cust-elena-dsouza",
+            ["Farhan Qureshi"] = "/images/people/cust-farhan-qureshi",
+            ["Tanya Bhatt"] = "/images/people/cust-tanya-bhatt",
+            ["Vikram Rao"] = "/images/people/cust-vikram-rao",
         };
 
         foreach (var x in await db.RetailShops.Where(x => x.ImageUrl == null).ToListAsync()) if (shopImg.TryGetValue(x.Code, out var v)) x.ImageUrl = Ui.Asset(v);

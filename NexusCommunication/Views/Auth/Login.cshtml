@@ -67,15 +67,15 @@
                     </div>
                 </div>
 
-                <form id="login-form" method="post" action="/login" class="mt-8 space-y-4">
+                <form id="login-form" method="post" action="/login" autocomplete="off" class="mt-8 space-y-4">
                     @Html.AntiForgeryToken()
                     <div class="relative">
                         <i data-lucide="user" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
-                        <input id="username" name="Username" value="@Model.Username" placeholder="Username" autocomplete="username" required class="field pl-11" />
+                        <input id="username" name="Username" value="@Model.Username" placeholder="Username" autocomplete="off" autocapitalize="none" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" required class="field pl-11" />
                     </div>
                     <div class="relative">
                         <i data-lucide="lock" class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"></i>
-                        <input id="password" name="Password" type="password" placeholder="Password" autocomplete="current-password" required class="field pl-11 pr-11" />
+                        <input id="password" name="Password" type="password" placeholder="Password" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" required class="field pl-11 pr-11" />
                         <button type="button" data-toggle-pass="password" aria-label="Show password" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-200"><i data-lucide="eye" class="h-4 w-4"></i></button>
                     </div>
 
@@ -107,6 +107,22 @@
     <script>
         (function () {
             var form = document.getElementById('login-form');
+            var user = document.getElementById('username'), pass = document.getElementById('password');
+            var hadError = @(string.IsNullOrEmpty(Model.Error) ? "false" : "true");
+            var typed = false;   // true once the person types here, so we never wipe what they are typing
+
+            [user, pass].forEach(function (el) { el.addEventListener('input', function () { typed = true; }); });
+
+            // always start empty after logout / back button / browser autofill (after a failed attempt the username stays, the password never does)
+            function wipe() {
+                if (typed) return;
+                pass.value = '';
+                if (!hadError) user.value = '';
+            }
+            wipe();
+            [50, 300, 900, 2000].forEach(function (ms) { setTimeout(wipe, ms); });   // browsers autofill a moment after load
+            window.addEventListener('pageshow', function (e) { if (e.persisted) { typed = false; hadError = false; wipe(); } });
+
             form.addEventListener('submit', function () {
                 document.getElementById('login-btn').disabled = true;
                 document.getElementById('login-label').textContent = 'Verifying…';
